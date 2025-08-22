@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /build
+.sqlite
 
 # Logs
 logs
@@ -45,7 +46,7 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
-db.sqlite
+.sqlite
 package-lock.json
 .prettierrc
 

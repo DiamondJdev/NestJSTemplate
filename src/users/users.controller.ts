@@ -1,19 +1,14 @@
-import {
-	Controller,
-	Get,
-	Param,
-	Body,
-	Patch,
-	Delete,
-	Post,
-} from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CreateUserDto } from 'src/dto/CreateUser.dto';
+import { Controller, Get, Param, Body, Patch, Delete } from '@nestjs/common';
+import { DbService } from 'src/db/db.service';
+import { AuthService } from 'src/auth/auth.service';
 import { UpdateUserDto } from 'src/dto/update-user.dto';
 
 @Controller('users')
 export class UsersController {
-	constructor(private readonly usersService: UsersService) {}
+	constructor(
+		private readonly usersService: DbService,
+		private readonly authService: AuthService,
+	) {}
 
 	@Get()
 	async findAll() {
@@ -28,21 +23,9 @@ export class UsersController {
 		};
 	}
 
-	@Post()
-	async createUser(@Body() createUserDto: CreateUserDto) {
-		if (!createUserDto || !createUserDto.userId) {
-			return { message: 'Invalid user data', status: 400, data: createUserDto };
-		}
-		const user = await this.usersService.create(createUserDto);
-		if (!user) {
-			return { message: 'User already exists', status: 409 };
-		}
-		return { message: 'User created successfully', status: 201, data: user };
-	}
-
-	@Get(':id')
-	async findOne(@Param('id') id: string) {
-		const user = await this.usersService.findOne(id);
+	@Get(':uuid')
+	async findOne(@Param('uuid') uuid: string) {
+		const user = await this.usersService.findOne(uuid, undefined);
 		if (!user) {
 			return { message: 'User not found', status: 404, data: undefined };
 		}
@@ -53,9 +36,9 @@ export class UsersController {
 		};
 	}
 
-	@Delete(':id')
-	async deleteUser(@Param('id') id: string) {
-		const user = await this.usersService.remove(id);
+	@Delete(':uuid')
+	async deleteUser(@Param('uuid') uuid: string) {
+		const user = await this.usersService.remove(uuid);
 		if (!user) {
 			return { message: 'User not found', status: 404, data: undefined };
 		}
@@ -66,12 +49,12 @@ export class UsersController {
 		};
 	}
 
-	@Patch(':id')
+	@Patch(':uuid')
 	async updateUser(
-		@Param('id') id: string,
+		@Param('uuid') uuid: string,
 		@Body() updateUserDto: UpdateUserDto,
 	) {
-		const updatedUser = await this.usersService.update(id, updateUserDto);
+		const updatedUser = await this.usersService.update(uuid, updateUserDto);
 		if (!updatedUser) {
 			return { message: 'User not found', status: 404 };
 		}

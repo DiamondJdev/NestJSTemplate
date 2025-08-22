@@ -3,12 +3,17 @@ import {
 	IsOptional,
 	IsString,
 	IsStrongPassword,
+	Matches,
 } from 'class-validator';
 
 export class UpdateUserDto {
 	@IsOptional()
 	@IsString()
-	name?: string;
+	firstName?: string;
+
+	@IsOptional()
+	@IsString()
+	lastName?: string;
 
 	@IsOptional()
 	@IsEmail()
@@ -16,6 +21,9 @@ export class UpdateUserDto {
 
 	@IsOptional()
 	@IsString()
+	@Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
+		message: 'Password must contain uppercase, lowercase, and a number',
+	})
 	@IsStrongPassword({
 		minLength: 12,
 		minLowercase: 1,

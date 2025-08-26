@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../dto/CreateUser.dto';
 import { loginUserDto } from '../dto/loginUser.dto';
+import { BodyRequiredGuard } from './body-required.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -24,26 +25,14 @@ export class AuthController {
 	 * ```
 	 */
 	@Post('login')
+	@UseGuards(BodyRequiredGuard) // Checks input before hitting route
 	async login(@Body() loginUserDto: loginUserDto) {
-		// Check for loginUserDto before specific params
-		if (!loginUserDto) {
-			return {
-				message: 'Email and password are required',
-				status: 400,
-			};
-		}
 		return await this.authService.login(loginUserDto);
 	}
 
 	@Post('register')
+	@UseGuards(BodyRequiredGuard) // Checks input before hitting route
 	async register(@Body() createUserDto: CreateUserDto) {
-		if (!createUserDto) {
-			return {
-				message: 'Invalid user data',
-				status: 400,
-				data: createUserDto,
-			};
-		}
 		const user = await this.authService.register(createUserDto);
 		if (!user) {
 			return { message: 'User already exists', status: 409 };

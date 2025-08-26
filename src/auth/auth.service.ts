@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import bcrypt from 'bcrypt';
 import { DbService } from '../db/db.service'; // Should prob move into own db file later
+
 import { CreateUserDto } from 'src/dto/CreateUser.dto';
+import { loginUserDto } from 'src/dto/loginUser.dto';
 import { User } from 'src/entities/user.entity';
 
 @Injectable()
@@ -25,13 +27,14 @@ export class AuthService {
 	 * ```
 	 */
 	// eslint-disable-next-line prettier/prettier
-	async login(email: string, password: string): Promise<{ message: string; token: string }> {
-		if (!email || !password) {
-			throw new Error('Email and password are required');
-		}
+	async login(loginUserDto: loginUserDto): Promise<{ message: string; token: string }> {
+		const { email, password } = loginUserDto;
 
 		// Lookup user in Database
-		const user: User | null = await this.dbService.findOne(undefined, email);
+		const user: User | null = await this.dbService.findOne(
+			undefined,
+			email,
+		);
 		if (!user) {
 			throw new Error('User not found');
 		}

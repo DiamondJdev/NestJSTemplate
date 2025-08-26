@@ -28,19 +28,17 @@ export class AuthService {
 	 */
 	// eslint-disable-next-line prettier/prettier
 	async login(loginUserDto: loginUserDto): Promise<{ message: string; token: string }> {
-		const { email, password } = loginUserDto;
-
 		// Lookup user in Database
 		const user: User | null = await this.dbService.findOne(
 			undefined,
-			email,
+			loginUserDto.email,
 		);
 		if (!user) {
 			throw new Error('User not found');
 		}
 
 		// Compare password to saved hash
-		const isMatch: boolean = await bcrypt.compare(password, user.password);
+		const isMatch: boolean = await bcrypt.compare(loginUserDto.password, user.password);
 		if (!isMatch) {
 			throw new Error('Invalid password');
 		}

@@ -25,13 +25,14 @@ export class AuthController {
 	 */
 	@Post('login')
 	async login(@Body() loginUserDto: loginUserDto) {
-		if (!loginUserDto.email || !loginUserDto.password) {
+		// Check for loginUserDto before specific params
+		if (!loginUserDto) {
 			return {
 				message: 'Email and password are required',
 				status: 400,
 			};
 		}
-		return await this.authService.login(loginUserDto.email, loginUserDto.password);
+		return await this.authService.login(loginUserDto);
 	}
 
 	@Post('register')

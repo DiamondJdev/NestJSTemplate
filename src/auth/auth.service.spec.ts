@@ -122,6 +122,4 @@ describe('AuthService', () => {
 			expect(authService.getLoggedIn()).toEqual({ loggedIn: true });
 		});
 	});
-
-	// ...existing code...
 });

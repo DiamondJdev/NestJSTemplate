@@ -1,12 +1,17 @@
-import { Module } from '@nestjs/common';
-import { AuthController } from './auth.controller';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
 import { DbModule } from '../db/db.module';
-import { BodyRequiredGuard } from './body-required.guard';
+import { JwtModule } from '../jwt/jwt.module';
 
 @Module({
-	imports: [DbModule],
+	imports: [
+		DbModule,
+		// Use forwardRef to handle potential circular dependencies
+		forwardRef(() => JwtModule),
+	],
 	controllers: [AuthController],
-	providers: [AuthService, BodyRequiredGuard],
+	providers: [AuthService],
+	exports: [AuthService],
 })
 export class AuthModule {}

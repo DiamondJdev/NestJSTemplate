@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import bcrypt from 'bcrypt';
+
 import { DbService } from '../db/db.service'; // Should prob move into own db file later
+import { JwtService } from '../jwt/jwt.service';
 
 import { CreateUserDto } from 'src/dto/CreateUser.dto';
 import { loginUserDto } from 'src/dto/loginUser.dto';
@@ -8,7 +14,11 @@ import { User } from 'src/entities/user.entity';
 
 @Injectable()
 export class AuthService {
-	constructor(private readonly dbService: DbService) {}
+	constructor(
+		private readonly dbService: DbService,
+		private readonly jwtService: JwtService,
+	) {}
+
 	/**
 	 * Authenticates a user by validating their email and password credentials.
 	 *
@@ -26,26 +36,32 @@ export class AuthService {
 	 * console.log(result.token);   // "dummy-jwt-token"
 	 * ```
 	 */
-	// eslint-disable-next-line prettier/prettier
-	async login(loginUserDto: loginUserDto): Promise<{ message: string; token: string }> {
-		// Lookup user in Database
-		const user: User | null = await this.dbService.findOne(
-			undefined,
-			loginUserDto.email,
-		);
-		if (!user) {
-			throw new Error('User not found');
+	async login(loginUserDto: loginUserDto): Promise<{ message: string; userID: string; accessToken: string; refreshToken: string; }> {
+		const user = await this.dbService.findOne(undefined, loginUserDto.email);
+		let isValid = !!user;
+		const passwordHash = user?.password ?? '$2b$10$C6UzMDM.H6dfI/f/IKcEeO1jJXclB/6L6iRHIx6e.C5F9jq5Hn4e.';
+
+		if (!await bcrypt.compare(loginUserDto.password, passwordHash)) {
+			isValid = false;
 		}
 
-		// Compare password to saved hash
-		const isMatch: boolean = await bcrypt.compare(loginUserDto.password, user.password);
-		if (!isMatch) {
-			throw new Error('Invalid password');
-		}
+		const userId = user?.id ?? 'ycuvybuuyvyderyfutg7iyunhbgjftru';
+		const userRole = user?.role ?? 'user';
 
+		
+		const tokens = await this.jwtService.rotateTokens(userId, userRole);
+		
+		// Wait until end to return Error to prevent Timing Attacks
+		if (!isValid) {
+			throw new UnauthorizedException('Invalid Email or Password');
+		}
+		
+		await this.dbService.SaveRefreshToken(userId, tokens.refreshTokenHash);
 		return {
 			message: 'User logged in successfully',
-			token: 'dummy-jwt-token', // TODO: Implment JWT Service
+			userID: userId,
+			accessToken: tokens.accessToken,
+			refreshToken: tokens.refreshToken,
 		};
 	}
 
@@ -64,8 +80,13 @@ export class AuthService {
 	 * console.log(result); // { message: 'User registered successfully', userId: 'user@example.com' }
 	 * ```
 	 */
-	async register(createUserDto: CreateUserDto): Promise<User | null> {
+	async register(createUserDto: CreateUserDto): Promise<{ message: string; userID: string; accessToken: string; refreshToken: string; }> {
 		const saltRounds = 12;
+
+		// Check if user already exists
+		if (await this.dbService.findOne(undefined, createUserDto.email)) {
+			throw new BadRequestException('User already exists');
+		}
 
 		// Hash the password
 		let hashedPassword: string;
@@ -84,11 +105,24 @@ export class AuthService {
 			password: hashedPassword,
 			createdAt: new Date(),
 			id: undefined,
+			role: 'user',
+			refreshTokenHash: '',
 		};
 
 		user = (await this.dbService.create(user)) as User;
-		console.log(user);
-		return user;
+
+		if (!user || !user.id) throw new Error('Error creating user');
+
+		const { accessToken, refreshToken, refreshTokenHash } = await this.jwtService.rotateTokens(user.id, user.role);
+
+		await this.dbService.SaveRefreshToken(user.id, refreshTokenHash);
+
+		return {
+			message: 'User registered successfully',
+			userID: user.id,
+			accessToken,
+			refreshToken,
+		};
 	}
 
 	/**
@@ -104,13 +138,34 @@ export class AuthService {
 	 * console.log(result.message); // "Token refreshed successfully"
 	 * ```
 	 */
-	refresh() {
-		// Simulate token refresh logic
-		return { message: 'Token refreshed successfully' };
+	async refresh(userId: string, refreshToken: string): Promise<{ message: string; accessToken: string; newRefreshToken: string; }> {
+		const user = await this.dbService.findOne(userId);
+		if (!user?.id || !user.refreshTokenHash) throw new UnauthorizedException();
+
+		const isValid = await this.jwtService.compareToken(
+			refreshToken,
+			user.refreshTokenHash,
+		);
+
+		if (!isValid) throw new UnauthorizedException();
+
+		const { accessToken, refreshToken: newRefreshToken, refreshTokenHash } = await this.jwtService.rotateTokens(user.id, user.role);
+
+		await this.dbService.SaveRefreshToken(user.id, refreshTokenHash);
+
+		return {
+			message: 'Token refreshed successfully',
+			accessToken,
+			newRefreshToken,
+		};
 	}
 
-	getLoggedIn() {
-		// Simulate check for logged in user
-		return { loggedIn: true };
+	async getLoggedIn(accessToken: string): Promise<{ loggedIn: boolean; userId?: string }> {
+		try {
+			const isValid = await this.jwtService.verifyToken(accessToken);
+			return { loggedIn: isValid };
+		} catch {
+			return { loggedIn: false };
+		}
 	}
 }

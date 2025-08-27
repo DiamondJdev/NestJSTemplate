@@ -2,12 +2,14 @@ import { Controller, Get, Param, Body, Patch, Delete } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { AuthService } from '../auth/auth.service';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import { JwtService } from '../jwt/jwt.service';
 
 @Controller('users')
 export class UsersController {
 	constructor(
 		private readonly usersService: DbService,
 		private readonly authService: AuthService,
+		private readonly jwtService: JwtService,
 	) {}
 
 	@Get()

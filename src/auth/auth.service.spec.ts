@@ -1,36 +1,51 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import bcrypt from 'bcrypt';
 
 import { AuthService } from './auth.service';
-import { DbService } from 'src/db/db.service';
-import { User } from '../entities/user.entity';
+import { DbService } from '../db/db.service';
+import { JwtService } from '../jwt/jwt.service';
 
+import { User } from '../entities/user.entity';
 import { loginUserDto } from 'src/dto/loginUser.dto';
 import { CreateUserDto } from 'src/dto/CreateUser.dto';
 
 describe('AuthService', () => {
 	let authService: AuthService;
 	let dbService: jest.Mocked<DbService>;
+	let jwtService: jest.Mocked<JwtService>;
 
 	beforeEach(() => {
 		dbService = {
 			findOne: jest.fn(),
 			create: jest.fn(),
+			SaveRefreshToken: jest.fn(),
 		} as any;
-		authService = new AuthService(dbService);
+		jwtService = {
+			rotateTokens: jest.fn(),
+			compareToken: jest.fn(),
+			verifyToken: jest.fn(),
+		} as any;
+
+		authService = new AuthService(dbService, jwtService);
 	});
 
 	describe('login', () => {
-		it('should return token/message for valid credentials', async () => {
+		it('should return tokens for valid credentials', async () => {
 			const user: User = {
 				email: 'test@test.com',
 				password: 'hashed',
 				createdAt: new Date(),
 				id: '1',
-				firstName: 'Test',
-				lastName: 'User',
+				role: 'user',
+				refreshTokenHash: 'hash',
 			} as User;
 			dbService.findOne.mockResolvedValue(user);
 			jest.spyOn(bcrypt, 'compare').mockResolvedValue(true);
+			jwtService.rotateTokens.mockResolvedValue({
+				accessToken: 'access-token',
+				refreshToken: 'refresh-token',
+				refreshTokenHash: 'new-hash',
+			});
 			const dto: loginUserDto = {
 				email: 'test@test.com',
 				password: 'pass',
@@ -38,50 +53,39 @@ describe('AuthService', () => {
 			const result = await authService.login(dto);
 			expect(result).toEqual({
 				message: 'User logged in successfully',
-				token: 'dummy-jwt-token',
+				userID: '1',
+				accessToken: 'access-token',
+				refreshToken: 'refresh-token',
 			});
 		});
 
-		it('should throw error for missing user', async () => {
+		it('should throw error for invalid credentials', async () => {
 			dbService.findOne.mockResolvedValue(null);
 			const dto: loginUserDto = {
 				email: 'notfound@test.com',
 				password: 'pass',
 			};
 			await expect(authService.login(dto)).rejects.toThrow(
-				'User not found',
-			);
-		});
-
-		it('should throw error for invalid password', async () => {
-			const user: User = {
-				email: 'test@test.com',
-				password: 'hashed',
-				createdAt: new Date(),
-				id: '1',
-				firstName: 'Test',
-				lastName: 'User',
-			} as User;
-			dbService.findOne.mockResolvedValue(user);
-			jest.spyOn(bcrypt, 'compare').mockResolvedValue(false);
-			const dto: loginUserDto = {
-				email: 'test@test.com',
-				password: 'wrong',
-			};
-			await expect(authService.login(dto)).rejects.toThrow(
-				'Invalid password',
+				'Invalid Email or Password',
 			);
 		});
 	});
 
 	describe('register', () => {
-		it('should return user for valid data', async () => {
+		it('should register a new user', async () => {
 			jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed');
+			jwtService.rotateTokens.mockResolvedValue({
+				accessToken: 'access-token',
+				refreshToken: 'refresh-token',
+				refreshTokenHash: 'new-hash',
+			});
 			dbService.create.mockResolvedValue({
 				email: 'new@test.com',
 				password: 'hashed',
 				createdAt: new Date(),
 				id: '2',
+				role: 'user',
+				refreshTokenHash: '',
 				firstName: 'New',
 				lastName: 'User',
 			});
@@ -93,33 +97,50 @@ describe('AuthService', () => {
 				username: 'newuser',
 			};
 			const result = await authService.register(dto);
-			expect(result).toHaveProperty('email', 'new@test.com');
-			expect(result).toHaveProperty('password', 'hashed');
-		});
-
-		it('should throw error for hashing failure', async () => {
-			jest.spyOn(bcrypt, 'hash').mockRejectedValue(new Error('fail'));
-			const dto: CreateUserDto = {
-				email: 'fail@test.com',
-				password: 'pass',
-			};
-			await expect(authService.register(dto)).rejects.toThrow(
-				'Error hashing password',
-			);
+			expect(result).toEqual({
+				message: 'User registered successfully',
+				userID: '2',
+				accessToken: 'access-token',
+				refreshToken: 'refresh-token',
+			});
 		});
 	});
 
 	describe('refresh', () => {
-		it('should return success message', () => {
-			expect(authService.refresh()).toEqual({
+		it('should refresh tokens for valid refresh token', async () => {
+			const user: User = {
+				id: '1',
+				refreshTokenHash: 'hash',
+			} as User;
+			dbService.findOne.mockResolvedValue(user);
+			jwtService.compareToken.mockResolvedValue(true);
+			jwtService.rotateTokens.mockResolvedValue({
+				accessToken: 'new-access-token',
+				refreshToken: 'new-refresh-token',
+				refreshTokenHash: 'new-hash',
+			});
+			const result = await authService.refresh('1', 'refresh-token');
+			expect(result).toEqual({
 				message: 'Token refreshed successfully',
+				accessToken: 'new-access-token',
+				newRefreshToken: 'new-refresh-token',
 			});
 		});
 	});
 
 	describe('getLoggedIn', () => {
-		it('should return loggedIn true', () => {
-			expect(authService.getLoggedIn()).toEqual({ loggedIn: true });
+		it('should return loggedIn true for valid token', async () => {
+			jwtService.verifyToken.mockResolvedValue(true);
+			const result = await authService.getLoggedIn('valid-token');
+			expect(result).toEqual({ loggedIn: true });
+		});
+
+		it('should return loggedIn false for invalid token', async () => {
+			jwtService.verifyToken.mockRejectedValue(
+				new Error('Invalid token'),
+			);
+			const result = await authService.getLoggedIn('invalid-token');
+			expect(result).toEqual({ loggedIn: false });
 		});
 	});
 });

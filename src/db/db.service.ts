@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+	ConflictException,
+	Injectable,
+	UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm/dist/common/typeorm.decorators';
 
 import { Repository } from 'typeorm';
@@ -19,11 +23,8 @@ export class DbService {
 	}
 
 	async create(user: User): Promise<User | undefined> {
-		const exists = await this.userRepository.findOne({
-			where: { email: user.email }, // check using email instead of uuid
-		});
-		if (exists) {
-			return undefined;
+		if (await this.findOne(undefined, user.email)) {
+			throw new ConflictException('User already exists');
 		}
 		return await this.userRepository.save(user);
 	}
@@ -49,10 +50,8 @@ export class DbService {
 		return user;
 	}
 
-	async update(
-		uuid: string,
-		updateUserDto: UpdateUserDto,
-	): Promise<User | undefined> {
+	// eslint-disable-next-line prettier/prettier
+	async update(uuid: string, updateUserDto: UpdateUserDto): Promise<User | undefined> {
 		const user = await this.userRepository.findOne({
 			where: { id: uuid },
 		});
@@ -61,5 +60,15 @@ export class DbService {
 		}
 		Object.assign(user, updateUserDto);
 		return await this.userRepository.save(user);
+	}
+
+	// eslint-disable-next-line prettier/prettier
+	async SaveRefreshToken(userId: string, refreshTokenHash: string): Promise<void> {
+		let user: User | null;
+		if (!(user = await this.findOne(userId, undefined))) {
+			throw new UnauthorizedException();
+		}
+		user.refreshTokenHash = refreshTokenHash;
+		await this.userRepository.save(user);
 	}
 }

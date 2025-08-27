@@ -1,12 +1,19 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+
 import { AuthService } from './auth.service';
+import { JwtService } from '../jwt/jwt.service';
+
+import { BodyRequiredGuard } from './body-required.guard';
+import { RefreshUserTokensDto } from '../dto/refreshUserTokens.dto';
 import { CreateUserDto } from '../dto/CreateUser.dto';
 import { loginUserDto } from '../dto/loginUser.dto';
-import { BodyRequiredGuard } from './body-required.guard';
 
 @Controller('auth')
 export class AuthController {
-	constructor(private readonly authService: AuthService) {}
+	constructor(
+		private readonly authService: AuthService,
+		private readonly jwtService: JwtService,
+	) {}
 
 	/**
 	 * Handles user login authentication
@@ -45,12 +52,15 @@ export class AuthController {
 	}
 
 	@Patch('refresh')
-	refresh() {
-		return this.authService.refresh();
+	refresh(@Body() refreshTokenDto: RefreshUserTokensDto) {
+		return this.authService.refresh(
+			refreshTokenDto.userId,
+			refreshTokenDto.refreshToken,
+		);
 	}
 
 	@Get('loggedIn')
-	loggedIn() {
-		return this.authService.getLoggedIn();
+	loggedIn(@Body('accessToken') accessToken: string) {
+		return this.authService.getLoggedIn(accessToken);
 	}
 }

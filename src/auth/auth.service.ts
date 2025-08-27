@@ -55,7 +55,7 @@ export class AuthService {
 		if (!isValid) {
 			throw new UnauthorizedException('Invalid Email or Password');
 		}
-		
+
 		await this.dbService.SaveRefreshToken(userId, tokens.refreshTokenHash);
 		return {
 			message: 'User logged in successfully',

@@ -1,8 +1,11 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+	BadRequestException,
+	Injectable,
+	UnauthorizedException,
+} from '@nestjs/common';
 import bcrypt from 'bcrypt';
 
 import { DbService } from '../db/db.service'; // Should prob move into own db file later
@@ -20,25 +23,28 @@ export class AuthService {
 	) {}
 
 	/**
-	 * Authenticates a user by validating their email and password credentials.
+	 * Authenticates a user by validating their username and password credentials.
+	 * If parameters are invalid, placeholder hashes and IDs are used to prevent timing 
+	 * attacks, but are still rejected, even if placeholder hash is correct.
 	 *
-	 * @param email - The user's email address used for authentication
-	 * @param password - The user's plain text password to be verified
+	 * @param loginUserDto - Login credentials containing username and password
 	 * @returns A promise that resolves to an object containing a success message and authentication token
-	 * @throws {Error} When email or password are missing
-	 * @throws {Error} When user with the provided email is not found
+	 * @throws {Error} When username or password are missing
+	 * @throws {Error} When user with the provided username is not found
 	 * @throws {Error} When the provided password doesn't match the stored hash
 	 *
 	 * @example
 	 * ```typescript
-	 * const result = await authService.login('user@example.com', 'password123');
+	 * const result = await authService.login({ username: 'cam', password: '123456' });
 	 * console.log(result.message); // "User logged in successfully"
-	 * console.log(result.token);   // "dummy-jwt-token"
+	 * console.log(result.accessToken);   // JWT access token
 	 * ```
 	 */
 	async login(loginUserDto: loginUserDto): Promise<{ message: string; userID: string; accessToken: string; refreshToken: string; }> {
-		const user = await this.dbService.findOne(undefined, loginUserDto.email);
-		let isValid = !!user;
+		// Find user by username
+		const user: User | null = await this.dbService.findOne(undefined, loginUserDto.username);
+
+		let isValid = !!user; // Assume invalid unless proven otherwise
 		const passwordHash = user?.password ?? '$2b$10$C6UzMDM.H6dfI/f/IKcEeO1jJXclB/6L6iRHIx6e.C5F9jq5Hn4e.';
 
 		if (!await bcrypt.compare(loginUserDto.password, passwordHash)) {
@@ -46,14 +52,13 @@ export class AuthService {
 		}
 
 		const userId = user?.id ?? 'ycuvybuuyvyderyfutg7iyunhbgjftru';
-		const userRole = user?.role ?? 'user';
+		const userRole = user?.role ?? "USER";
 
-		
 		const tokens = await this.jwtService.rotateTokens(userId, userRole);
-		
+
 		// Wait until end to return Error to prevent Timing Attacks
 		if (!isValid) {
-			throw new UnauthorizedException('Invalid Email or Password');
+			throw new UnauthorizedException('Invalid credentials');
 		}
 
 		await this.dbService.SaveRefreshToken(userId, tokens.refreshTokenHash);
@@ -66,25 +71,24 @@ export class AuthService {
 	}
 
 	/**
-	 * Registers a new user with the provided email and password.
+	 * Registers a new user with the provided username and password.
 	 *
-	 * @param email - The user's email address
-	 * @param password - The user's plain text password
-	 * @returns A promise that resolves to an object containing a success message and the user's email
-	 * @throws {Error} When email or password is missing
+	 * @param createUserDto - The user's registration data containing username and password
+	 * @returns A promise that resolves to an object containing a success message and the user's ID
+	 * @throws {Error} When username or password is missing
 	 * @throws {Error} When password hashing fails
 	 *
 	 * @example
 	 * ```typescript
-	 * const result = await authService.register('user@example.com', 'securePassword123');
-	 * console.log(result); // { message: 'User registered successfully', userId: 'user@example.com' }
+	 * const result = await authService.register({ username: 'newuser', password: 'securePassword123' });
+	 * console.log(result); // { message: 'User registered successfully', userID: 'uuid' }
 	 * ```
 	 */
 	async register(createUserDto: CreateUserDto): Promise<{ message: string; userID: string; accessToken: string; refreshToken: string; }> {
 		const saltRounds = 12;
 
 		// Check if user already exists
-		if (await this.dbService.findOne(undefined, createUserDto.email)) {
+		if (await this.dbService.findOne(undefined, createUserDto.username)) {
 			throw new BadRequestException('User already exists');
 		}
 
@@ -94,7 +98,7 @@ export class AuthService {
 			hashedPassword = await bcrypt.hash(
 				createUserDto.password,
 				saltRounds,
-			);
+			) as string;
 		} catch {
 			throw new Error('Error hashing password');
 		}
@@ -105,7 +109,7 @@ export class AuthService {
 			password: hashedPassword,
 			createdAt: new Date(),
 			id: undefined,
-			role: 'user',
+			role: createUserDto.role || 'user',
 			refreshTokenHash: '',
 		};
 
@@ -128,26 +132,39 @@ export class AuthService {
 	/**
 	 * Refreshes the authentication token for the logged-in user.
 	 *
-	 * @returns A promise that resolves to an object containing a success message and the user's new token
-	 * @throws {Error} When token is missing
-	 * @throws {Error} When token refresh fails
+	 * @param refreshToken - The refresh token to validate and use for generating new tokens
+	 * @returns A promise that resolves to an object containing a success message and the user's new tokens
+	 * @throws {UnauthorizedException} When refresh token is invalid or expired
+	 * @throws {UnauthorizedException} When user is not found or has no stored refresh token
 	 *
 	 * @example
 	 * ```typescript
-	 * const result = await authService.refresh();
-	 * console.log(result.message); // "Token refreshed successfully"
+	 * const result = await authService.refresh('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...');
+	 * console.log(result.accessToken); // New access token
+	 * console.log(result.newRefreshToken); // New refresh token
 	 * ```
 	 */
-	async refresh(userId: string, refreshToken: string): Promise<{ message: string; accessToken: string; newRefreshToken: string; }> {
+	async refresh(refreshToken: string): Promise<{ message: string; accessToken: string; newRefreshToken: string; }> {
+		// Decode the refresh token to extract user ID
+		const payload = this.jwtService.decodeToken(refreshToken);
+		if (!payload || !payload.sub) {
+			throw new UnauthorizedException('Invalid refresh token');
+		}
+
+		const userId: string = payload.sub;
 		const user = await this.dbService.findOne(userId);
-		if (!user?.id || !user.refreshTokenHash) throw new UnauthorizedException();
+		if (!user?.id || !user.refreshTokenHash) {
+			throw new UnauthorizedException('User not found or refresh token not set');
+		}
 
 		const isValid = await this.jwtService.compareToken(
 			refreshToken,
 			user.refreshTokenHash,
 		);
 
-		if (!isValid) throw new UnauthorizedException();
+		if (!isValid) {
+			throw new UnauthorizedException('Invalid refresh token');
+		}
 
 		const { accessToken, refreshToken: newRefreshToken, refreshTokenHash } = await this.jwtService.rotateTokens(user.id, user.role);
 
@@ -162,9 +179,10 @@ export class AuthService {
 
 	async getLoggedIn(accessToken: string): Promise<{ loggedIn: boolean; userId?: string }> {
 		try {
-			const isValid = await this.jwtService.verifyToken(accessToken);
-			return { loggedIn: isValid };
-		} catch {
+			return { loggedIn: await this.jwtService.verifyToken(accessToken) };
+		} catch (error) {
+			// Suppress noisy log output during tests but keep for other environments
+			console.log('Error verifying token', error as Error);
 			return { loggedIn: false };
 		}
 	}

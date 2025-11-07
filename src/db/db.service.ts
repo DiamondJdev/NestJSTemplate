@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import {
 	ConflictException,
 	Injectable,
@@ -23,18 +24,21 @@ export class DbService {
 	}
 
 	async create(user: User): Promise<User | undefined> {
-		if (await this.findOne(undefined, user.email)) {
+		// Check for existing user by username
+		const existingUserByUsername = await this.findOne(undefined, user.username);
+		
+		if (existingUserByUsername) {
 			throw new ConflictException('User already exists');
 		}
 		return await this.userRepository.save(user);
 	}
 
-	async findOne(uuid?: string, email?: string): Promise<User | null> {
+	async findOne(uuid?: string, username?: string): Promise<User | null> {
 		if (uuid) {
 			return await this.userRepository.findOne({ where: { id: uuid } });
 		}
-		if (email) {
-			return await this.userRepository.findOne({ where: { email } });
+		if (username) {
+			return await this.userRepository.findOne({ where: { username } });
 		}
 		return null;
 	}
@@ -50,7 +54,6 @@ export class DbService {
 		return user;
 	}
 
-	// eslint-disable-next-line prettier/prettier
 	async update(uuid: string, updateUserDto: UpdateUserDto): Promise<User | undefined> {
 		const user = await this.userRepository.findOne({
 			where: { id: uuid },
@@ -62,7 +65,17 @@ export class DbService {
 		return await this.userRepository.save(user);
 	}
 
-	// eslint-disable-next-line prettier/prettier
+	async updateRole(uuid: string, role: string): Promise<User | undefined> {
+		const user = await this.userRepository.findOne({
+			where: { id: uuid },
+		});
+		if (!user) {
+			throw new UnauthorizedException();
+		}
+		user.role = role;
+		return await this.userRepository.save(user);
+	}
+
 	async SaveRefreshToken(userId: string, refreshTokenHash: string): Promise<void> {
 		let user: User | null;
 		if (!(user = await this.findOne(userId, undefined))) {
@@ -72,3 +85,4 @@ export class DbService {
 		await this.userRepository.save(user);
 	}
 }
+

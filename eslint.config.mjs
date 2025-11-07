@@ -28,14 +28,7 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      'prettier/prettier': [
-        'error',
-        {
-          useTabs: true,
-          tabWidth: 4,
-        },
-      ],
+      '@typescript-eslint/no-unsafe-argument': 'warn'
     },
   },
 );

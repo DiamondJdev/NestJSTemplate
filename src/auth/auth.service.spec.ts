@@ -1,13 +1,10 @@
-// We can ignore these problems since this is meant to fail if something is wrong
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import bcrypt from "bcrypt";
-
 import { AuthService } from "./auth.service";
 import { DbService } from "../db/db.service";
 import { JwtService } from "../jwt/jwt.service";
-
 import { User } from "../entities/user.entity";
 import { loginUserDto } from "../dto/loginUser.dto";
 import { CreateUserDto } from "../dto/CreateUser.dto";
@@ -35,6 +32,7 @@ describe("AuthService", () => {
   describe("login", () => {
     it("should return tokens for valid credentials", async () => {
       const user: User = {
+        username: "testuser",
         email: "test@test.com",
         password: "hashed",
         createdAt: new Date(),
@@ -50,7 +48,7 @@ describe("AuthService", () => {
         refreshTokenHash: "new-hash",
       });
       const dto: loginUserDto = {
-        email: "test@test.com",
+        username: "test@test.com",
         password: "pass",
       };
       const result = await authService.login(dto);
@@ -65,7 +63,7 @@ describe("AuthService", () => {
     it("should throw error for invalid credentials", async () => {
       dbService.findOne.mockResolvedValue(null);
       const dto: loginUserDto = {
-        email: "notfound@test.com",
+        username: "notfound@test.com",
         password: "pass",
       };
       await expect(authService.login(dto)).rejects.toThrow(
@@ -83,7 +81,7 @@ describe("AuthService", () => {
         refreshTokenHash: "new-hash",
       });
       dbService.create.mockResolvedValue({
-        email: "new@test.com",
+        username: "new@test.com",
         password: "hashed",
         createdAt: new Date(),
         id: "2",
@@ -93,7 +91,7 @@ describe("AuthService", () => {
         lastName: "User",
       });
       const dto: CreateUserDto = {
-        email: "new@test.com",
+        username: "new@test.com",
         password: "pass",
         firstName: "New",
         lastName: "User",

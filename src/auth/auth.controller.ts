@@ -30,7 +30,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /**
-   * Root endpoint for API health check
+	 * Root endpoint for API health check
    */
   @Get()
   getRoot() {
@@ -86,7 +86,6 @@ export class AuthController {
   @Patch("auth/refresh")
   @UseGuards(BodyRequiredGuard)
   async refresh(@Body() refreshTokenDto: RefreshUserTokensDto) {
-    // eslint-disable-next-line prettier/prettier
     const result = await this.authService.refresh(refreshTokenDto.refresh_token);
     return {
       access_token: result.accessToken,

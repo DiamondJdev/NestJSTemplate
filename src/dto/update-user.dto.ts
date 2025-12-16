@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { IsOptional, IsString, IsStrongPassword } from "class-validator";
 
 export class UpdateUserDto {

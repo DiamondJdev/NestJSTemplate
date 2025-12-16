@@ -1,17 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-
-/* PasswordMatchesPrivate function for rooms.controller
- * A function that checks if the room availablity is private, and if so,
- * allow a password parameter. If the room is public, do not allow a password
- * parameter to be passed.
- */
 import {
   registerDecorator,
   ValidationOptions,
   ValidationArguments,
 } from "class-validator";
 
+/* 
+ * This is a function for rooms.controller that checks if the room availablity is private, 
+ * and if so, allow a password parameter. If the room is public, do not allow a password
+ * parameter in the incoming request.
+ * 
+ * ! This is high level validation logic that shouldn't really be messed with.
+ * ! This code will work for all cases, do not try to "optimize" it.
+*/
 export function PasswordMatchesPrivate(validationOptions?: ValidationOptions) {
   return function (object: any, propertyName: string) {
     registerDecorator({

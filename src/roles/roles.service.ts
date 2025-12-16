@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { User } from '../entities/user.entity';

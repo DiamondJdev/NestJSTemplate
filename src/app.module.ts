@@ -2,12 +2,7 @@ import { RolesModule } from "./roles/roles.module";
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { UsersModule } from "./users/users.module";
-import { RoomsModule } from "./rooms/rooms.module";
-import { MessagesModule } from "./messages/messages.module";
-import { ChatModule } from "./chat/chat.module";
 import { User } from "./entities/user.entity";
-import { Room } from "./entities/room.entity";
-import { Message } from "./entities/message.entity";
 import { AuthModule } from "./auth/auth.module";
 import { JwtModule } from "./jwt/jwt.module";
 import { DbModule } from "./db/db.module";
@@ -24,7 +19,7 @@ import { ConfigModule } from "@nestjs/config";
     TypeOrmModule.forRoot({
       type: "sqlite",
       database: "../database.db", // Use repo root database for compatibility
-      entities: [User, Room, Message],
+      entities: [User],
       synchronize: true,
     }),
     ConfigModule.forRoot({
@@ -36,9 +31,6 @@ import { ConfigModule } from "@nestjs/config";
       ].filter(Boolean),
     }),
     UsersModule,
-    RoomsModule,
-    MessagesModule,
-    ChatModule,
     AuthModule,
     JwtModule,
     DbModule,

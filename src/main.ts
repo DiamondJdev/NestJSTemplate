@@ -1,12 +1,15 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './modules/app.module';
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
 
-	// Enable CORS for all origins bc screw security
-  // ! In production, CORS would be restricted to frontend and other trusted origins
+	/** 
+	 * Enable CORS for all origins bc screw security
+	 * 
+	 * @todo In production, CORS would be restricted to frontend and other trusted origins
+	*/
 	app.enableCors({
 			origin: true, 
 			credentials: true,
@@ -16,7 +19,7 @@ async function bootstrap() {
 		new ValidationPipe({
 				whitelist: true, // Don't allow undecorated props
 				forbidNonWhitelisted: true, // throws if extra props are present
-				transform: true, // auto-transforms types (e.g., string -> number). Can be less safe, but convenient for rapid development 
+				transform: true, // auto-transforms types (e.g., string -> number).
 			}));
 
 	const port = process.env.PORT || 5200;
@@ -27,10 +30,14 @@ async function bootstrap() {
 	console.log(`Server running on http://0.0.0.0:${port}`);
 }
 
-/* 
- * Litterally just calls bootstrap() and ignores the returned promise
- * 
- * We can't make bootstrap() of type void because async functions always return a promise
- * and only calling bootstrap() would lead to an unsafe call of an `error` typed value.
-*/
-void bootstrap(); 
+/**
+ * Any major error that can not be handled by NestJS will be caught in the code
+ * below. The default behavior is to display the error on stdout and quit.
+ *
+ * @todo In production, we should build a logging service and log the error to a file
+ * 	or external logging service instead of stdout.
+ */
+bootstrap().catch((err) => {
+    console.error(err);
+    process.exit(1);
+});

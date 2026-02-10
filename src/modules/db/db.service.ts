@@ -3,7 +3,6 @@ import {
 	Injectable,
 	InternalServerErrorException,
 	BadRequestException,
-	UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm/dist/common/typeorm.decorators';
 import * as bcrypt from 'bcrypt';
@@ -35,25 +34,23 @@ export class DbService {
 	}
 
 	async findOne(uuid?: string, username?: string): Promise<User | null> {
+		if(!uuid && !username) throw new BadRequestException('No Parameters provided');
 		let user: User | null = null;
-		if (uuid) {	
-			user = await this.userRepository.findOne({ where: { id: uuid } });
-		} else if (username) {
-			user = await this.userRepository.findOne({ where: { username } });
-		}
-		if (!user) return null;
+		if (uuid) user = await this.userRepository.findOne({ where: { id: uuid } });
+		else if (username) user = await this.userRepository.findOne({ where: { username } });
+		if (!user) throw new BadRequestException('No user found with provided parameters');
 		return user;
 	}
 
 	async remove(uuid: string): Promise<User | undefined> {
 		const user = await this.userRepository.findOne({where: { id: uuid }});
-		if (!user) return undefined;
+		if (!user) throw new BadRequestException('User not found');
 		return await this.userRepository.remove(user);
 	}
 
 	async update(uuid: string, updateUserDto: UpdateUserDto): Promise<User | undefined> {
 		const user = await this.userRepository.findOne({where: { id: uuid }});
-		if (!user) return undefined;
+		if (!user) throw new BadRequestException('User not found');
 		
 		if (updateUserDto.password) {
 			const saltRounds = 12;
@@ -63,7 +60,7 @@ export class DbService {
 			} catch {
 				throw new InternalServerErrorException('Error while updating user');
 			}
-		} else return undefined;
+		} else throw new BadRequestException('No update parameters provided');
 		
 		return await this.userRepository.save(user);
 	}
@@ -71,14 +68,14 @@ export class DbService {
 	async updateRole(uuid: string, role: string): Promise<User | undefined> {
 		if (!isValidRole(role)) throw new BadRequestException('Invalid role');
 		const user = await this.userRepository.findOne({where: { id: uuid }});
-		if (!user) throw new UnauthorizedException('User cannot update role');
+		if (!user) throw new BadRequestException('User could not be found');
 		user.role = role;
 		return await this.userRepository.save(user);
 	}
 
 	async saveRefreshToken(userId: string, refreshTokenHash: string): Promise<void> {
 		const user = await this.userRepository.findOne({ where: { id: userId } });
-		if (!user) throw new UnauthorizedException('Cannot generate new refresh token for user');
+		if (!user) throw new BadRequestException('User could not be found');
 		user.refreshTokenHash = refreshTokenHash;
 		await this.userRepository.save(user);
 	}

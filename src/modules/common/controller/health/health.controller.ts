@@ -1,7 +1,7 @@
 import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { DbService } from '../../../db/db.service';
 
-@Controller('health')
+@Controller('/')
 export class HealthController {
 	constructor(private readonly dbService: DbService) {}
 	
@@ -29,10 +29,10 @@ export class HealthController {
 			backendStatus = 'unhealthy';
 		}
 		
-		// TODO: Add logging - Log final health check result with overall status
+		// TODO: Move response formatting to DTO and use DTO in logging and return 
 		return {
 			message: "Template API",
-			version: "1.0.0", // Ideally sourced from package.json or environment
+			version: "1.0.0", // TODO: Dynamically pull version from package.json
 			database: {
 				status: databaseStatus,
 				latency: dbLatency + ' ms',
@@ -42,6 +42,7 @@ export class HealthController {
 				uptime: Math.floor(process.uptime()) + ' seconds',
 			},
 			timestamp: new Date().toISOString(),
+			mode: process.env.NODE_ENV || 'mode not set',
 		};
 	}
 }

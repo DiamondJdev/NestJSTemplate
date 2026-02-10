@@ -19,7 +19,14 @@ export class DbService {
 		private readonly userRepository: Repository<User>,
 	) {}
 
-
+	async healthCheck(): Promise<boolean> {
+		try {
+			await this.userRepository.query('SELECT 1');
+			return true;
+		} catch {
+			return false;
+		}
+	}
 
 	// TODO: Remove findAll() method, replace require parameters
 	async findAll(): Promise<User[]> {

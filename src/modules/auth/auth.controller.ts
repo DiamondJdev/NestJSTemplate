@@ -20,19 +20,6 @@ import type { AuthenticatedRequest } from "../common/AuthenticatedRequest";
 @Controller()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  /**
-	 * Root endpoint for API health check
-   */
-  @Get()
-  getRoot() {
-    return {
-      message: "Ignite Chat API",
-      status: "healthy",
-      version: "1.0.0",
-    };
-  }
-
   /**
    * Handles user login authentication
    * @param loginUserDto - The login credentials containing username and password

@@ -14,8 +14,7 @@ export class RolesService {
 		return user.role;
 	}
 
-    async update(uuid: string, role: string): Promise<User | undefined> {
-        const user = await this.dbService.updateRole(uuid, role);
-        return user;
+    async update(uuid: string, role: string): Promise<void> {
+        await this.dbService.updateRole(uuid, role);
     }    
 }

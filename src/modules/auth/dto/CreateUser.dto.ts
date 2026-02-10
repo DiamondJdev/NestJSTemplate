@@ -7,18 +7,18 @@ import {
   MaxLength,
 } from "class-validator";
 
-export class CreateUserDto {
+export class createUserDto {
   @IsNotEmpty({ message: "Username is required" })
   @IsString()
   @IsAlphanumeric(undefined, { message: "Username must contain only letters and numbers" })
-  @Length(3, 20, { message: "Username must be between 3 and 20 characters" })
+  @Length(3, 64, { message: "Username must be between 3 and 64 characters" })
   username: string;
 
   @IsNotEmpty({ message: "Password is required" })
   @IsString()
   @IsStrongPassword(
     {
-      minLength: 8,
+      minLength: 12,
       minLowercase: 1,
       minUppercase: 1,
       minNumbers: 1,

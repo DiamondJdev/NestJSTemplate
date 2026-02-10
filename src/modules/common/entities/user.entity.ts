@@ -2,10 +2,12 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from "typeor
 
 @Entity()
 export class User {
+  // Auto-generated UUID primary key for the user entity
   @PrimaryGeneratedColumn('uuid')
   id?: string;
 
-  @Column({ unique: true })
+  // TypeORM.save() will throw QueryFailedError on duplicate username
+  @Column({ unique: true, length: 64 })
   username: string;
 
   @CreateDateColumn()
@@ -14,7 +16,7 @@ export class User {
   @Column()
   password: string;
 
-  @Column()
+  @Column({ default: 'user' })
   role: string;
 
   @Column({ nullable: true })

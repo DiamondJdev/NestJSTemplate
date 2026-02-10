@@ -9,7 +9,7 @@ import bcrypt from 'bcrypt';
 
 import { DbService } from '../db/db.service';
 import { JwtService } from '../jwt/jwt.service';
-import { CreateUserDto } from './dto/CreateUser.dto';
+import { createUserDto } from './dto/createUser.dto';
 import { loginUserDto } from './dto/loginUser.dto';
 import { User } from '../common/entities/user.entity';
 import type { AuthenticatedRequest } from '../common/AuthenticatedRequest';
@@ -78,7 +78,7 @@ export class AuthService {
 	 * console.log(result); // { message: 'User registered successfully', userID: 'uuid' }
 	 * ```
 	 */
-	async register(createUserDto: CreateUserDto): Promise<{ message: string; userID: string; accessToken: string; refreshToken: string; }> {
+	async register(createUserDto: createUserDto): Promise<{ message: string; userID: string; accessToken: string; refreshToken: string; }> {
 		const saltRounds = 12;
 
 		// Hash the password

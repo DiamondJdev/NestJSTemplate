@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Body, Patch, Delete, UseGuards, Request, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { UpdateUserDto } from '../common/dto/update-user.dto';
+import { UpdateUserDto } from '../common/dto/updateUser.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../roles/flow/roles.guard';
 import { Roles } from '../roles/flow/roles.decorator';
@@ -61,8 +61,12 @@ export class UsersController {
 	@Roles(UserRole.ADMIN, UserRole.USER)
 	@HttpCode(HttpStatus.OK)
 	async updateUser(@Body() updateUserDto: UpdateUserDto, @Request() req: AuthenticatedRequest) {
-		const updatedUser = await this.usersService.update(req.user.id, updateUserDto);
-		if (!updatedUser) throw new NotFoundException({ message: 'User not found' });
+		try {
+			await this.usersService.update(req.user.id, updateUserDto);
+		} catch (error) {
+			if (error instanceof NotFoundException) throw new NotFoundException({ message: 'User not found' });
+			throw error;
+		}
 		return { message: 'User updated successfully' };
 	}
 }

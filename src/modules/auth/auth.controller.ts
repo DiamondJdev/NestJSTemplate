@@ -13,7 +13,7 @@ import { AuthService } from "./auth.service";
 import { BodyRequiredGuard } from "./guard/body-required.guard";
 import { JwtAuthGuard } from "./guard/jwt-auth.guard";
 import { RefreshUserTokensDto } from "./dto/refreshUserTokens.dto";
-import { CreateUserDto } from "./dto/CreateUser.dto";
+import { createUserDto } from "./dto/createUser.dto";
 import { loginUserDto } from "./dto/loginUser.dto";
 import type { AuthenticatedRequest } from "../common/AuthenticatedRequest";
 
@@ -49,7 +49,7 @@ export class AuthController {
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(BodyRequiredGuard) // Checks input before hitting route
-  async register(@Body() createUserDto: CreateUserDto) {
+  async register(@Body() createUserDto: createUserDto) {
     const result = await this.authService.register(createUserDto);
     return {
       ...result,
@@ -61,7 +61,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(BodyRequiredGuard, JwtAuthGuard)
   async refresh(@Body() refreshTokenDto: RefreshUserTokensDto, @Request() req: AuthenticatedRequest) {
-    const result = await this.authService.refresh(req, refreshTokenDto.refresh_token);
+    const result = await this.authService.refresh(req, refreshTokenDto.refreshToken);
     return {
       ...result,
       token_type: "bearer",

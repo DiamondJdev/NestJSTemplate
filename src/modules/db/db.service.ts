@@ -11,6 +11,7 @@ import { Repository } from 'typeorm';
 
 import { User } from '../common/entities/user.entity';
 import { UpdateUserDto } from '../common/dto/update-user.dto';
+import { isValidRole } from '../common/utils/roleChecker';
 
 @Injectable()
 export class DbService {
@@ -68,7 +69,7 @@ export class DbService {
 	}
 
 	async updateRole(uuid: string, role: string): Promise<User | undefined> {
-		if (!['user', 'admin'].includes(role)) throw new BadRequestException('Invalid role');
+		if (!isValidRole(role)) throw new BadRequestException('Invalid role');
 		const user = await this.userRepository.findOne({where: { id: uuid }});
 		if (!user) throw new UnauthorizedException('User cannot update role');
 		user.role = role;

@@ -3,13 +3,15 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   UseGuards,
 } from "@nestjs/common";
-import { RolesService, UserRole } from "./roles.service";
+import { RolesService } from "./roles.service";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth.guard";
 import { RolesGuard } from "./flow/roles.guard";
 import { Roles } from "./flow/roles.decorator";
+import { UserRole } from "../common/utils/userRole.enum";
 
 @Controller("roles")
 @UseGuards(JwtAuthGuard) // Require authentication for all role endpoints
@@ -20,18 +22,12 @@ export class RolesController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN) // Only admins can view roles
   @HttpCode(HttpStatus.OK)
-  async getRole(@Param("uuid") uuid: string) {
+  async getRole(@Param("uuid") uuid: string): Promise<{ message: string; role: string }> {
     const role = await this.rolesService.getRole(uuid);
-    if (!role) {
-      return { 
-        message: "User not found", 
-        status: HttpStatus.NOT_FOUND, 
-        data: undefined 
-      };
-    }
+    if (!role) throw new NotFoundException({ message: "User not found" });
     return {
       message: "Role retrieved successfully",
-      data: role,
+      role: role,
     };
   }
   

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
-	BadRequestException,
 	Injectable,
 	InternalServerErrorException,
 	UnauthorizedException,
@@ -55,7 +54,7 @@ export class AuthService {
 		if (!user.id) throw new InternalServerErrorException('Error processing user data');
 
 		const tokens = await this.jwtService.rotateTokens(user.id, user.role);
-		await this.dbService.SaveRefreshToken(user.id, tokens.refreshTokenHash);
+		await this.dbService.saveRefreshToken(user.id, tokens.refreshTokenHash);
 
 		return {
 			message: 'User logged in successfully',
@@ -82,9 +81,6 @@ export class AuthService {
 	async register(createUserDto: CreateUserDto): Promise<{ message: string; userID: string; accessToken: string; refreshToken: string; }> {
 		const saltRounds = 12;
 
-		// Check if user already exists
-		if (await this.dbService.findOne(undefined, createUserDto.username)) throw new BadRequestException('User already exists');
-
 		// Hash the password
 		let hashedPassword: string;
 		try {
@@ -105,7 +101,7 @@ export class AuthService {
 		user = (await this.dbService.create(user)) as User;
 		if (!user || !user.id) throw new InternalServerErrorException('Error while creating user');
 		const { accessToken, refreshToken, refreshTokenHash } = await this.jwtService.rotateTokens(user.id, user.role);
-		await this.dbService.SaveRefreshToken(user.id, refreshTokenHash);
+		await this.dbService.saveRefreshToken(user.id, refreshTokenHash);
 
 		return {
 			message: 'User registered successfully',
@@ -139,7 +135,7 @@ export class AuthService {
 		if (!isValidToken) throw new UnauthorizedException('Invalid refresh token');
 
 		const { accessToken, refreshToken: newRefreshToken, refreshTokenHash } = await this.jwtService.rotateTokens(req.user.id, user.role);
-		await this.dbService.SaveRefreshToken(req.user.id, refreshTokenHash);
+		await this.dbService.saveRefreshToken(req.user.id, refreshTokenHash);
 
 		return {
 			message: 'Token refreshed successfully',

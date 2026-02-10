@@ -2,8 +2,8 @@ import { Controller, Get, Param, Body, Patch, Delete, UseGuards, Request, HttpCo
 import { DbService } from '../db/db.service';
 import { UpdateUserDto } from '../common/dto/updateUser.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
-import { RolesGuard } from '../roles/flow/roles.guard';
-import { Roles } from '../roles/flow/roles.decorator';
+import { RolesGuard } from '../common/flow/roles.guard';
+import { Roles } from '../common/flow/roles.decorator';
 import { UserRole } from '../common/utils/userRole.enum';
 import type { AuthenticatedRequest } from '../common/AuthenticatedRequest';
 

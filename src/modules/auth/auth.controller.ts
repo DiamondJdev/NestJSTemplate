@@ -17,7 +17,7 @@ import { createUserDto } from "./dto/createUser.dto";
 import { loginUserDto } from "./dto/loginUser.dto";
 import type { AuthenticatedRequest } from "../common/AuthenticatedRequest";
 
-@Controller()
+@Controller('/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
   /**
@@ -28,7 +28,7 @@ export class AuthController {
    *
    * @example
    * ```
-   * POST /login
+   * POST /auth/login
    * {
    *   "username": "cam",
    *   "password": "123456"
@@ -57,7 +57,7 @@ export class AuthController {
     };
   }
 
-  @Patch("auth/refresh")
+  @Patch("refresh")
   @HttpCode(HttpStatus.OK)
   @UseGuards(BodyRequiredGuard, JwtAuthGuard)
   async refresh(@Body() refreshTokenDto: RefreshUserTokensDto, @Request() req: AuthenticatedRequest) {
@@ -75,7 +75,7 @@ export class AuthController {
    * @throws UnauthorizedException if no valid JWT token is provided
    * @throws ForbiddenException if user does not have access (Should not happen)
    */
-  @Get("auth/me")
+  @Get("me")
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   getCurrentUser(@Request() req: AuthenticatedRequest) {

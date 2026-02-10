@@ -5,9 +5,6 @@ import { JwtService } from "./jwt.service";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      envFilePath: ".env",
-    }),
     NestJwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

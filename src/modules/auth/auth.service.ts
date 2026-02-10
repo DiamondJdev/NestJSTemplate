@@ -48,9 +48,10 @@ export class AuthService {
 		if (!user || !isMatch) {
 			// TODO: In production, we should log failed login attempts for security monitoring, 
 			// TODO: but be careful not to log sensitive information like passwords or full hashes.
-			return Promise.reject(new UnauthorizedException('Invalid Username or Password'));
+			throw new UnauthorizedException('Invalid Username or Password');
 		}
 
+		// Needed to satisfy type system, but id is never null
 		if (!user.id) throw new InternalServerErrorException('Error processing user data');
 
 		const tokens = await this.jwtService.rotateTokens(user.id, user.role);

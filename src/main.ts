@@ -1,9 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './modules/app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { LoggerService } from './modules/common/logging/services/logger.service';
+import { LoggingInterceptor } from './modules/common/logging/interceptors/logging.interceptor';
 
 async function bootstrap() {
-	const app = await NestFactory.create(AppModule);
+	const app = await NestFactory.create(AppModule, {
+		bufferLogs: true,
+	});
+
+	const logger = app.get(LoggerService);
+	app.useLogger(logger);
+	app.useGlobalInterceptors(new LoggingInterceptor(logger));
 
 	/** 
 	 * Enable CORS for all origins bc screw security
@@ -22,17 +30,11 @@ async function bootstrap() {
 	const port = process.env.PORT || 5200;
 	const ip = '0.0.0.0'
 	await app.listen(port, ip);
-	console.log(`Server running on http://${ip}:${port}`);
+	logger.log(`Server running on http://${ip}:${port}`, 'Bootstrap');
 }
 
-/**
- * Any major error that can not be handled by NestJS will be caught in the code
- * below. The default behavior is to display the error on stdout and quit.
- *
- * TODO: In production, we should build a logging service and log the error to a file
- * or external logging service instead of stdout.
- */
 bootstrap().catch((err) => {
-    console.error(err);
-    process.exit(1);
+	const logger = new LoggerService();
+	logger.error('Fatal error during bootstrap', err.stack, 'Bootstrap');
+	process.exit(1);
 });

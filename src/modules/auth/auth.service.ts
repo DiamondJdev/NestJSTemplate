@@ -13,12 +13,14 @@ import { createUserDto } from './dto/createUser.dto';
 import { loginUserDto } from './dto/loginUser.dto';
 import { User } from '../common/entities/user.entity';
 import type { AuthenticatedRequest } from '../common/AuthenticatedRequest';
+import { LoggerService } from '../common/logging/services/logger.service';
 
 @Injectable()
 export class AuthService {
 	constructor(
 		private readonly dbService: DbService,
 		private readonly jwtService: JwtService,
+		private readonly logger: LoggerService,
 	) {}
 
 	/**
@@ -46,8 +48,7 @@ export class AuthService {
 		const isMatch = await bcrypt.compare(loginUserDto.password, comparisonHash) as boolean;
 
 		if (!user || !isMatch) {
-			// TODO: In production, we should log failed login attempts for security monitoring, 
-			// TODO: but be careful not to log sensitive information like passwords or full hashes.
+			this.logger.warn(`Failed login attempt for username: ${loginUserDto.username}`, 'AuthService');
 			throw new UnauthorizedException('Invalid Username or Password');
 		}
 
@@ -56,6 +57,8 @@ export class AuthService {
 
 		const tokens = await this.jwtService.rotateTokens(user.id, user.role);
 		await this.dbService.saveRefreshToken(user.id, tokens.refreshTokenHash);
+
+		this.logger.logUserStats('login', user.id, { username: user.username });
 
 		return {
 			message: 'User logged in successfully',
@@ -89,7 +92,8 @@ export class AuthService {
 				createUserDto.password,
 				saltRounds,
 			) as string;
-		} catch {
+		} catch (error) {
+			this.logger.error('Password hashing failed during registration', (error as Error).stack, 'AuthService');
 			throw new InternalServerErrorException('Error while creating user');
 		}
 
@@ -103,6 +107,9 @@ export class AuthService {
 		if (!user || !user.id) throw new InternalServerErrorException('Error while creating user');
 		const { accessToken, refreshToken, refreshTokenHash } = await this.jwtService.rotateTokens(user.id, user.role);
 		await this.dbService.saveRefreshToken(user.id, refreshTokenHash);
+
+		this.logger.log(`New user registered: ${user.username}`, 'AuthService');
+		this.logger.logUserStats('registration', user.id, { username: user.username, role: user.role });
 
 		return {
 			message: 'User registered successfully',
@@ -133,10 +140,15 @@ export class AuthService {
 
 		
 		const isValidToken = await this.jwtService.compareToken(refreshToken, user.refreshTokenHash);
-		if (!isValidToken) throw new UnauthorizedException('Invalid refresh token');
+		if (!isValidToken) {
+			this.logger.warn(`Invalid refresh token attempt for user: ${req.user.id}`, 'AuthService');
+			throw new UnauthorizedException('Invalid refresh token');
+		}
 
 		const { accessToken, refreshToken: newRefreshToken, refreshTokenHash } = await this.jwtService.rotateTokens(req.user.id, user.role);
 		await this.dbService.saveRefreshToken(req.user.id, refreshTokenHash);
+
+		this.logger.logUserStats('token_refresh', req.user.id);
 
 		return {
 			message: 'Token refreshed successfully',

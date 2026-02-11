@@ -33,8 +33,10 @@ async function bootstrap() {
 	logger.log(`Server running on http://${ip}:${port}`, 'Bootstrap');
 }
 
-bootstrap().catch((err) => {
+bootstrap().catch((err: unknown) => {
 	const logger = new LoggerService();
-	logger.error('Fatal error during bootstrap', err.stack, 'Bootstrap');
+	// Safely ensure type of err before accessing stack as some errors may not be Error instances
+	const stack = err instanceof Error ? err.stack : 'Unknown error';
+	logger.error('Fatal error during bootstrap', stack, 'Bootstrap');
 	process.exit(1);
 });

@@ -168,7 +168,7 @@ src/
     │   │   ├── jwt-auth.guard.ts    # Validates Bearer tokens on protected routes
     │   │   └── body-required.guard.ts
     │   └── dto/
-    │       ├── createUser.dto.ts    # Strict password validation rules
+    │       ├── CreateUser.dto.ts    # Strict password validation rules
     │       ├── loginUser.dto.ts
     │       └── refreshUserTokens.dto.ts
     ├── users/                       # User management (CRUD, role-protected)

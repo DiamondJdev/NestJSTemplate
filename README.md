@@ -350,8 +350,9 @@ NODE_ENV=development
 
 ## 📡 API Reference
 
-Base URL: `http://localhost:8080`
+Base URL (development – `npm run start:dev`): `http://localhost:8080`
 
+For production or when running `npm start`, the base URL is `http://localhost:5200` (or `http://localhost:${PORT}` if you change the `PORT` value).
 ### Authentication
 
 | Method | Endpoint | Auth | Body | Description |

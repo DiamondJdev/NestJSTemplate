@@ -284,8 +284,8 @@ The dev server starts at **`http://localhost:8080`** (the `--port 8080` flag in 
 ### 4. Verify It's Working
 
 ```bash
-curl http://localhost:8080/health
-# → {"status":"ok","database":"connected"}
+curl http://localhost:8080/
+# → {"message":"OK","version":"1.0.0","database":{"status":"connected","latency":12},"backend":{"status":"running","uptime":123456},"timestamp":"2025-01-01T00:00:00.000Z","mode":"development"}
 ```
 
 ### 5. Register Your First User

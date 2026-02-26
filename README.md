@@ -572,7 +572,8 @@ All incoming requests are automatically logged by `LoggingInterceptor` (applied 
 ### Using the Logger in Your Code
 
 ```typescript
-import { LoggerService } from './modules/common/logging/services/logger.service';
+// Adjust the import path based on your file's location or configured path aliases
+import { LoggerService } from 'src/modules/common/logging/services/logger.service';
 
 @Injectable()
 export class MyService {

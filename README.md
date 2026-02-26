@@ -216,9 +216,8 @@ src/
 │ username     │ VARCHAR(64) UNIQUE        │
 │ password     │ VARCHAR (bcrypt hash)     │
 │ role         │ VARCHAR (default: 'user') │
-│ refreshToken │ VARCHAR (bcrypt hash,     │
-│ Hash         │          nullable)        │
-│ createdAt    │ TIMESTAMP (auto-set)      │
+│ refreshTokenHash │ VARCHAR (bcrypt hash, nullable) │
+│ createdAt        │ TIMESTAMP (auto-set)            │
 └──────────────┴──────────────────────────┘
 ```
 

@@ -377,7 +377,7 @@ For production or when running `npm start`, the base URL is `http://localhost:52
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/health` | None | Returns server status and DB connectivity |
+| `GET` | `/` | None | Returns server status and DB connectivity |
 
 **Health response example:**
 

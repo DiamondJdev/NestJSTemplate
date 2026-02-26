@@ -12,9 +12,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 [![ESLint](https://img.shields.io/badge/ESLint-9.x-4B32C3?style=flat-square&logo=eslint&logoColor=white)](https://eslint.org)
-[![bcrypt](https://img.shields.io/badge/bcrypt-6.x-blueviolet?flat-square)](https://www.npmjs.com/package/bcrypt)
-[![TypeORM](https://img.shields.io/badge/TypeORM-0.3.x-FE0902?flat-square)](https://typeorm.io)
-[![Socket.io](https://img.shields.io/badge/Socket.io-4.x-010101?flat-square&logo=socketdotio)](https://socket.io)
+[![bcrypt](https://img.shields.io/badge/bcrypt-6.x-blueviolet?style=flat-square)](https://www.npmjs.com/package/bcrypt)
+[![TypeORM](https://img.shields.io/badge/TypeORM-0.3.x-FE0902?style=flat-square)](https://typeorm.io)
+[![Socket.io](https://img.shields.io/badge/Socket.io-4.x-010101?style=flat-square&logo=socketdotio)](https://socket.io)
 
 </div>
 

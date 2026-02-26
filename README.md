@@ -383,7 +383,16 @@ Base URL: `http://localhost:8080`
 ```json
 {
   "status": "ok",
-  "database": "connected"
+  "database": {
+    "status": "connected",
+    "latencyMs": 12
+  },
+  "backend": {
+    "uptimeSeconds": 12345,
+    "version": "1.0.0",
+    "mode": "production"
+  },
+  "timestamp": "2025-01-01T12:00:00.000Z"
 }
 ```
 

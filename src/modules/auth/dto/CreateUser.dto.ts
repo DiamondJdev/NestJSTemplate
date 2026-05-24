@@ -6,14 +6,24 @@ import {
   IsAlphanumeric,
   MaxLength,
 } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class createUserDto {
+  @ApiProperty({ example: "johndoe", minLength: 3, maxLength: 64 })
   @IsNotEmpty({ message: "Username is required" })
   @IsString()
-  @IsAlphanumeric(undefined, { message: "Username must contain only letters and numbers" })
+  @IsAlphanumeric(undefined, {
+    message: "Username must contain only letters and numbers",
+  })
   @Length(3, 64, { message: "Username must be between 3 and 64 characters" })
-  username: string;
+  username!: string;
 
+  @ApiProperty({
+    example: "Str0ng!Passw0rd",
+    minLength: 12,
+    maxLength: 128,
+    format: "password",
+  })
   @IsNotEmpty({ message: "Password is required" })
   @IsString()
   @IsStrongPassword(
@@ -24,8 +34,11 @@ export class createUserDto {
       minNumbers: 1,
       minSymbols: 1,
     },
-    { message: "Password must be 12 characters, 1 lowercase, 1 uppercase, 1 number, and 1 symbol" },
+    {
+      message:
+        "Password must be 12 characters, 1 lowercase, 1 uppercase, 1 number, and 1 symbol",
+    },
   )
   @MaxLength(128, { message: "Password must be less than 128 characters" })
-  password: string;
+  password!: string;
 }

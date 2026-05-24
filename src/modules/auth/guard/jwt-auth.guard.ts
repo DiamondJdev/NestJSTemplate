@@ -8,15 +8,9 @@ import { JwtService } from "../../jwt/jwt.service";
 import { DbService } from "../../db/db.service";
 
 interface RequestWithUser {
-  headers: {
-    authorization?: string;
-  };
-  user?: {
-    id: string;
-    username: string;
-    role: string;
-    roles: string[];
-  };
+  headers: { authorization?: string };
+  cookies?: Record<string, string>;
+  user?: { id: string; username: string; roles: string[] };
 }
 
 @Injectable()
@@ -30,27 +24,33 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
     const authorization = request.headers.authorization;
 
-    if (!authorization || typeof authorization !== 'string')  throw new UnauthorizedException("Authorization header is missing");
-    
-
-    const [bearer, token] = authorization.split(" ");
-    if (bearer !== "Bearer" || !token) throw new UnauthorizedException("Invalid authorization format");
-
+    // Extract token from Authorization header or HttpOnly cookie
+    let token: string | undefined;
+    if (authorization && typeof authorization === "string") {
+      const [bearer, headerToken] = authorization.split(" ");
+      if (bearer !== "Bearer" || !headerToken)
+        throw new UnauthorizedException("Invalid authorization format");
+      token = headerToken;
+    } else if (request.cookies?.["accessToken"]) {
+      token = request.cookies["accessToken"];
+    } else {
+      throw new UnauthorizedException(
+        "Authorization header or accessToken cookie is missing",
+      );
+    }
 
     try {
-      // Verify the token
       const payload = await this.jwtService.verifyAndDecode(token);
-      if (!payload || !payload.sub) throw new UnauthorizedException("Invalid token");
+      if (!payload || !payload.sub)
+        throw new UnauthorizedException("Invalid token");
 
       const user = await this.dbService.findOne(payload.sub);
       if (!user) throw new UnauthorizedException("User not found");
-      
-      // Attach user info to request, including roles array for compatibility with RolesGuard
+
       request.user = {
         id: user.id!,
         username: user.username,
-        role: user.role,
-        roles: [user.role], // Convert single role to array for RolesGuard compatibility
+        roles: user.roles,
       };
 
       return true;

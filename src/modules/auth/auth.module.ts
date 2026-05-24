@@ -4,7 +4,7 @@ import { AuthController } from "./auth.controller";
 import { JwtAuthGuard } from "./guard/jwt-auth.guard";
 import { DbModule } from "../db/db.module";
 import { JwtModule } from "../jwt/jwt.module";
-import { CoreModule } from "../core/common.module";
+import { CoreModule } from "../core/core.module";
 
 @Module({
   imports: [DbModule, forwardRef(() => JwtModule), CoreModule],

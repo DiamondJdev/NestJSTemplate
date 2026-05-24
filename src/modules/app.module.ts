@@ -5,7 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module";
 import { CacheModule } from "./cache/cache.module";
-import { CoreModule } from "./core/common.module";
+import { CoreModule } from "./core/core.module";
 import { DbModule } from "./db/db.module";
 import { JwtModule } from "./jwt/jwt.module";
 import { RolesModule } from "./roles/roles.module";
@@ -16,10 +16,6 @@ import { UsersModule } from "./users/users.module";
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: "./.env",
-      validationOptions: {
-        allowUnknown: true,
-        abortEarly: false,
-      },
     }),
     ThrottlerModule.forRoot([
       {
@@ -33,6 +29,7 @@ import { UsersModule } from "./users/users.module";
         limit: 100,
       },
     ]),
+  
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

@@ -11,8 +11,4 @@ export class RolesService {
     if (!user) throw new NotFoundException({ message: "User not found" });
     return user.roles;
   }
-
-  async update(uuid: string, roles: UserRole[]): Promise<void> {
-    await this.dbService.updateRole(uuid, roles);
-  }
 }

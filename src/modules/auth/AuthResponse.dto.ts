@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString, IsUUID, MaxLength } from "class-validator";
+import { IsString, MaxLength } from "class-validator";
 
 class AuthUserDto {
   @ApiProperty({ format: "uuid" })
@@ -46,14 +46,6 @@ export class CurrentUserResponseDto {
 }
 
 export class RefreshTokenRequestDto {
-  @ApiProperty({
-    description: "User ID for which to refresh tokens.",
-    format: "uuid",
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  id!: string;
-
   @ApiProperty({
     required: false,
     nullable: true,

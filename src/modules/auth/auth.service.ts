@@ -6,8 +6,8 @@ import {
 import bcrypt from "bcrypt";
 import { DbService } from "../db/db.service";
 import { JwtService } from "../jwt/jwt.service";
-import { createUserDto } from "./dto/createUser.dto";
-import { loginUserDto } from "./dto/loginUser.dto";
+import { CreateUserDto } from "./dto/createUser.dto";
+import { LoginUserDto } from "./dto/loginUser.dto";
 import { User } from "../core/entities/user.entity";
 import { LoggerService } from "../core/logging/services/logger.service";
 import { UserRole } from "../core/utils/userRole.enum";
@@ -25,7 +25,7 @@ export class AuthService {
     private readonly logger: LoggerService,
   ) {}
 
-  async login(loginUserDto: loginUserDto): Promise<{
+  async login(loginUserDto: LoginUserDto): Promise<{
     message: string;
     accessToken: string;
     refreshToken: string;
@@ -67,7 +67,7 @@ export class AuthService {
     };
   }
 
-  async register(createUserDto: createUserDto): Promise<{
+  async register(createUserDto: CreateUserDto): Promise<{
     message: string;
     accessToken: string;
     refreshToken: string;
@@ -124,9 +124,9 @@ export class AuthService {
   }
 
   async refresh(
-    userId: string,
     refreshToken: string,
   ): Promise<{ message: string; accessToken: string; refreshToken: string }> {
+    const userId = (await this.jwtService.verifyAndDecode(refreshToken)).sub;
     const storedUser = await this.dbService.findOne(userId, undefined);
     const storedHash = await this.dbService.getRefreshTokenHash(userId);
 
@@ -144,7 +144,7 @@ export class AuthService {
 
     const isValidToken = await this.jwtService.compareToken(
       refreshToken,
-      storedHash,
+      storedHash
     );
     if (!isValidToken) {
       this.logger.warn(

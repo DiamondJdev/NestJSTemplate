@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
+import { ConfigService } from "@nestjs/config";
 import { AppModule } from "./modules/app.module";
 import { ValidationPipe } from "@nestjs/common";
 import { LoggerService } from "./modules/core/logging/services/logger.service";
@@ -15,6 +16,10 @@ import helmet from "helmet";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
+  // This somehow works idk
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  app.getHttpAdapter().getInstance().set('trust proxy', true); // Enable if behind a reverse proxy (e.g., for correct client IP logging)
+  const configService = app.get<ConfigService>(ConfigService);
   const logger = app.get<LoggerService>(LoggerService);
   app.useLogger(logger);
   app.useGlobalInterceptors(new LoggingInterceptor(logger));
@@ -50,8 +55,9 @@ async function bootstrap() {
     }),
   );
 
+  const allowedOriginsEnv = configService.getOrThrow<string>("ALLOWED_ORIGINS");
   app.enableCors({
-    origin: ["http://localhost:3000", "http://localhost:5200"],
+    origin: allowedOriginsEnv.split(",").map((s) => s.trim()).filter(Boolean),
     credentials: true,
   });
 

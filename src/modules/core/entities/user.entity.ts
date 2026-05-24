@@ -6,6 +6,7 @@ import {
   Index,
 } from "typeorm";
 import { UserRole } from "../utils/userRole.enum";
+import { tokenEncryptionTransformer } from "../utils/token-encryption.transformer";
 
 @Entity({ name: "users" })
 @Index("idx_users_username", ["username"])
@@ -22,7 +23,7 @@ export class User {
   @Column("text", { array: true, default: ["user"] })
   roles!: UserRole[];
 
-  @Column({ type: "varchar", length: 512, nullable: true })
+  @Column({ type: "varchar", length: 512, nullable: true, transformer: tokenEncryptionTransformer })
   refreshTokenHash?: string | null;
 
   @Column({ type: "timestamptz", nullable: true })

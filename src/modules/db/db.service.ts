@@ -69,7 +69,7 @@ export class DbService {
       safeUsers,
       CacheTTL.ALL_USERS,
     );
-    return users;
+    return users.map(u => this.reconstructUserFromCache(this.createUserCacheDto(u)));
   }
 
   /**
@@ -209,6 +209,7 @@ export class DbService {
     if (result.affected === 0)
       throw new BadRequestException("Could not find user to update");
     await this.cacheService.del(CacheKeys.userSafe(uuid));
+    await this.clearRefreshToken(uuid); // Logout and clear refresh token
   }
 
   /**

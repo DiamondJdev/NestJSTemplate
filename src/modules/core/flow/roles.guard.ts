@@ -7,6 +7,8 @@ import {
 import { Observable } from "rxjs";
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
+import { hasPermission } from "../utils/roleChecker";
+import { UserRole } from "../utils/userRole.enum"
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -30,7 +32,7 @@ export class RolesGuard implements CanActivate {
     if (!user.roles || !Array.isArray(user.roles))
       throw new ForbiddenException("User roles not found");
 
-    const hasRole = requiredRoles.some((role) => user.roles?.includes(role));
+    const hasRole = hasPermission(user.roles as UserRole[], requiredRoles as UserRole[]);
     if (!hasRole) throw new ForbiddenException("Insufficient permissions");
 
     return true;

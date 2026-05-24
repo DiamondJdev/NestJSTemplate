@@ -14,7 +14,7 @@ interface LogEntry {
 	level: LogLevel;
 	context?: string;
 	message: string;
-	metadata?: any;
+	metadata?: unknown;
 }
 
 @Injectable()
@@ -129,7 +129,7 @@ export class LoggerService implements NestLoggerService {
 		});
 	}
 	
-	logUserStats(action: string, userId: string, metadata?: any): void {
+	logUserStats(action: string, userId: string, metadata?: unknown): void {
 		const logEntry: LogEntry = {
 			timestamp: new Date().toISOString(),
 			level: LogLevel.INFO,

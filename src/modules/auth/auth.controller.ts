@@ -27,8 +27,8 @@ import type { CookieOptions, Response as ExpressResponse } from "express";
 import { AuthService } from "./auth.service";
 import { BodyRequiredGuard } from "./guard/body-required.guard";
 import { JwtAuthGuard } from "./guard/jwt-auth.guard";
-import { createUserDto } from "./dto/createUser.dto";
-import { loginUserDto } from "./dto/loginUser.dto";
+import { CreateUserDto } from "./dto/createUser.dto";
+import { LoginUserDto } from "./dto/loginUser.dto";
 import {
   AuthTokenResponseDto,
   CurrentUserResponseDto,
@@ -47,18 +47,18 @@ export class AuthController {
   private getTokenMaxAgeMs(tokenType: "access" | "refresh"): number {
     const envKey =
       tokenType === "access" ? "JWT_ACCESS_EXP" : "JWT_REFRESH_EXP";
-    const raw = this.configService.get<StringValue>(envKey);
+    const raw = this.configService.getOrThrow<StringValue>(envKey);
     if (!raw) throw new InternalServerErrorException("Internal Server Error");
     return ms(raw);
   }
 
-  private getCookieBaseOptions(): CookieOptions {
+  private getCookieBaseOptions(cookieType: "access" | "refresh"): CookieOptions {
     const isProduction = this.configService.get("NODE_ENV") === "production";
     return {
       httpOnly: true,
       secure: isProduction,
       sameSite: isProduction ? "none" : "lax",
-      path: "/",
+      path: cookieType === "refresh" ? "/auth/refresh" : "/",
     };
   }
 
@@ -67,21 +67,20 @@ export class AuthController {
     accessToken: string,
     refreshToken: string,
   ): void {
-    const base = this.getCookieBaseOptions();
     res.cookie("accessToken", accessToken, {
-      ...base,
+      ...this.getCookieBaseOptions("access"),
       maxAge: this.getTokenMaxAgeMs("access"),
     });
+
     res.cookie("refreshToken", refreshToken, {
-      ...base,
+      ...this.getCookieBaseOptions("refresh"),
       maxAge: this.getTokenMaxAgeMs("refresh"),
     });
   }
 
   private clearAuthCookies(res: ExpressResponse): void {
-    const base = this.getCookieBaseOptions();
-    res.clearCookie("accessToken", base);
-    res.clearCookie("refreshToken", base);
+    res.clearCookie("accessToken", this.getCookieBaseOptions("access"));
+    res.clearCookie("refreshToken", this.getCookieBaseOptions("refresh"));
   }
 
   @Post("login")
@@ -93,7 +92,7 @@ export class AuthController {
     description:
       "Verifies credentials and issues access + refresh JWTs. Tokens are returned in the response body and also set as HttpOnly `accessToken` / `refreshToken` cookies. Rate limited to 5 attempts/minute per IP.",
   })
-  @ApiBody({ type: loginUserDto })
+  @ApiBody({ type: LoginUserDto })
   @ApiResponse({
     status: HttpStatus.OK,
     description: "Login successful.",
@@ -103,7 +102,7 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Invalid username or password." })
   @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: "Too many login attempts." })
   async login(
-    @Body() loginUserDto: loginUserDto,
+    @Body() loginUserDto: LoginUserDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ): Promise<{
     message: string;
@@ -126,7 +125,7 @@ export class AuthController {
     description:
       "Creates a new account, hashes the password (bcrypt cost 12), issues access + refresh JWTs, and sets HttpOnly cookies. Rate limited to 5 attempts/minute per IP.",
   })
-  @ApiBody({ type: createUserDto })
+  @ApiBody({ type: CreateUserDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: "User created and authenticated.",
@@ -136,7 +135,7 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.CONFLICT, description: "Username is already taken." })
   @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: "Too many registration attempts." })
   async register(
-    @Body() createUserDto: createUserDto,
+    @Body() createUserDto: CreateUserDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ): Promise<{
     message: string;
@@ -152,7 +151,6 @@ export class AuthController {
 
   @Patch("refresh")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(BodyRequiredGuard)
   @ApiOperation({
     summary: "Refresh access and refresh tokens",
     description:
@@ -177,7 +175,6 @@ export class AuthController {
       throw new UnauthorizedException("Refresh token is missing");
 
     const result = await this.authService.refresh(
-      refreshTokenDto.id,
       refreshToken,
     );
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
@@ -217,9 +214,9 @@ export class AuthController {
     type: CurrentUserResponseDto,
   })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
-  async getCurrentUser(
+  getCurrentUser(
     @Request() req: AuthenticatedRequest,
-  ): Promise<{ data: { userId: string; username: string; roles: string[] } }> {
+  ): { data: { userId: string; username: string; roles: string[] } } {
     return {
       data: {
         userId: req.user.id,

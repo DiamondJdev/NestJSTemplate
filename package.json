@@ -1,10 +1,10 @@
 {
-  "name": "aero-stream",
+  "name": "template_nestjs_backend",
   "version": "0.0.1",
   "description": "",
-  "author": "Cameron Ginther, Chloe Hunter, Brett Berry",
+  "author": "Cameron Ginther",
   "private": false,
-  "license": "MIT",
+  "license":"MIT",
   "scripts": {
     "build": "nest build",
     "start": "NODE_ENV=production nest start",

@@ -1,72 +1,81 @@
 import {
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
-  UseGuards,
   Request,
+  UseGuards,
 } from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { RolesService } from "./roles.service";
+import { RolesResponseDto } from "./dto/roles.response.dto";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth.guard";
-import { RolesGuard } from "../common/flow/roles.guard";
-import { Roles } from "../common/flow/roles.decorator";
-import { UserRole } from "../common/utils/userRole.enum";
-import type { AuthenticatedRequest } from "../common/AuthenticatedRequest";
+import { RolesGuard } from "../core/flow/roles.guard";
+import { Roles } from "../core/flow/roles.decorator";
+import { UserRole } from "../core/utils/userRole.enum";
+import type { AuthenticatedRequest } from "../core/AuthenticatedRequest";
 
+@ApiTags("Roles")
+@ApiBearerAuth("access-token")
 @Controller("roles")
-@UseGuards(JwtAuthGuard) // Require authentication for all role endpoints
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.USER)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
-  @Get(":uuid")
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN) // Only admins can view roles
-  @HttpCode(HttpStatus.OK)
-  async getRole(@Param("uuid") uuid: string): Promise<{ message: string; role: string }> {
-    const role = await this.rolesService.getRole(uuid);
-    if (!role) throw new NotFoundException({ message: "User not found" });
-    return {
-      message: "Role retrieved successfully",
-      role: role,
-    };
-  }
-  
   @Get("me")
   @HttpCode(HttpStatus.OK)
-  async getUserRole(@Request() req: AuthenticatedRequest): Promise<{ message: string; role: string }> {
-    const role = await this.rolesService.getRole(req.user.id);
-    if (!role) throw new NotFoundException({ message: "User not found" });
-    return {
-      message: "Role retrieved successfully",
-      role: role,
-    };
+  @ApiOperation({
+    summary: "Get the current user's roles",
+    description: "Returns the roles assigned to the authenticated caller.",
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Roles retrieved successfully.",
+    type: RolesResponseDto,
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
+  async getUserRole(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<{ message: string; roles: UserRole[] }> {
+    const roles = await this.rolesService.getRoles(req.user.id);
+    return { message: "Roles retrieved successfully", roles };
   }
-  // Deprecated endpoint for updating user roles,
-  // Will be re-enabled after refactoring for admin role escalation 
-  //
-  // @Patch(":uuid")
-  // @UseGuards(RolesGuard)
-  // @Roles(UserRole.ADMIN) // Only admins can update roles
-  // @HttpCode(HttpStatus.OK)
-  // async updateUser(
-  //     @Param("uuid") uuid: string,
-  //     @Body("role") role: string,
-  // ) {
-  //     // Validate role before updating
-  //     if (!this.rolesService.isValidRole(role)) {
-  //         return { 
-  //             message: "Invalid role. Valid roles are: " + Object.values(UserRole).join(", "), 
-  //             status: HttpStatus.BAD_REQUEST
-  //         };
-  //     }
 
-  //     const updatedUser = await this.rolesService.update(uuid, role);
-  //     if (!updatedUser) return { message: "User not found", status: HttpStatus.NOT_FOUND };
-  //     return {
-  //         message: "User role updated successfully",
-  //         data: { id: updatedUser.id, username: updatedUser.username, role: updatedUser.role },
-  //     };
-  // }
+  @Get(":uuid")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Get the roles of a specific user",
+    description:
+      "Returns the roles for the user identified by `uuid`. Non-admin callers may only view their own roles.",
+  })
+  @ApiParam({ name: "uuid", description: "Target user UUID.", format: "uuid" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Roles retrieved successfully.",
+    type: RolesResponseDto,
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Caller cannot view another user's roles." })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
+  async getRole(
+    @Param("uuid") uuid: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<{ message: string; roles: UserRole[] }> {
+    if (req.user.id !== uuid && !req.user.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException(
+        "You do not have permission to view this user's roles",
+      );
+    }
+    const roles = await this.rolesService.getRoles(uuid);
+    return { message: "Roles retrieved successfully", roles };
+  }
 }

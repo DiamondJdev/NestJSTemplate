@@ -1,36 +1,68 @@
-import { RolesModule } from "./roles/roles.module";
 import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { UsersModule } from "./users/users.module";
 import { AuthModule } from "./auth/auth.module";
-import { JwtModule } from "./jwt/jwt.module";
+import { CacheModule } from "./cache/cache.module";
+import { CoreModule } from "./core/common.module";
 import { DbModule } from "./db/db.module";
-import { ConfigModule } from "@nestjs/config";
-import { CommonModule } from "./common/common.module";
+import { JwtModule } from "./jwt/jwt.module";
+import { RolesModule } from "./roles/roles.module";
+import { UsersModule } from "./users/users.module";
 
-/** DO NOT DELETE
- * app.module is the master module that imports all other modules
- * Deleting app.module means that no other modules would be runnable
- *
- */
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ["./src/.env.production", "./src/.env", "./.env"],
+      envFilePath: "./.env",
+      validationOptions: {
+        allowUnknown: true,
+        abortEarly: false,
+      },
     }),
-    TypeOrmModule.forRoot({
-      type: "sqlite",
-      database: "../database.db", // Use repo root database for compatibility
-      autoLoadEntities: true,
-      synchronize: process.env.NODE_ENV !== "production",
+    ThrottlerModule.forRoot([
+      {
+        name: "short",
+        ttl: 60000,
+        limit: 100,
+      },
+      {
+        name: "medium",
+        ttl: 900000,
+        limit: 100,
+      },
+    ]),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: "postgres",
+        url: config.get<string>("DATABASE_URL"),
+        ssl: config.get<string>("DB_SSL") === "true",
+        autoLoadEntities: true,
+        synchronize: config.get<string>("DB_SYNC") === "true",
+        logging:
+          config.get<string>("NODE_ENV") === "development" ? true : ["error"],
+        extra: {
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+        },
+      }),
     }),
     RolesModule,
     UsersModule,
     AuthModule,
     JwtModule,
     DbModule,
-    CommonModule,
+    CoreModule,
+    CacheModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

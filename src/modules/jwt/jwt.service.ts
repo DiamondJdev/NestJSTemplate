@@ -22,22 +22,22 @@ export class JwtService {
 
   generateRefreshToken(payload: JwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload, {
-      expiresIn: this.configService.get<StringValue>("JWT_REFRESH_EXP"),
+      expiresIn: this.configService.getOrThrow<StringValue>("JWT_REFRESH_EXP"),
     });
   }
 
   async hashToken(token: string): Promise<string> {
     try {
       const salt: string = await bcrypt.genSalt(10);
-      return bcrypt.hash(token, salt);
+      return await bcrypt.hash(token, salt);
     } catch {
       throw new InternalServerErrorException("Error processing token");
     }
   }
 
-  compareToken(token: string, hash: string): Promise<boolean> {
+  async compareToken(token: string, hash: string): Promise<boolean> {
     try {
-      return bcrypt.compare(token, hash);
+      return await bcrypt.compare(token, hash);
     } catch {
       throw new InternalServerErrorException("Error processing token");
     }

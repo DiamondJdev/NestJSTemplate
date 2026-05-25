@@ -6,6 +6,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module";
 import { CacheModule } from "./cache/cache.module";
 import { CoreModule } from "./core/core.module";
+import { CsrfGuard } from "./core/flow/csrf.guard";
 import { DbModule } from "./db/db.module";
 import { JwtModule } from "./jwt/jwt.module";
 import { RolesModule } from "./roles/roles.module";
@@ -29,7 +30,7 @@ import { UsersModule } from "./users/users.module";
         limit: 100,
       },
     ]),
-  
+
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -59,6 +60,10 @@ import { UsersModule } from "./users/users.module";
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
     },
   ],
 })

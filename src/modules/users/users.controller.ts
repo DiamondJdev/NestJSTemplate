@@ -113,9 +113,8 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Update a user's password",
-    description: "Users may update their own password; admins may update any user.",
+    description: "This route is exclusively for updating the caller's own password.",
   })
-  @ApiParam({ name: "uuid", format: "uuid", description: "Target user UUID." })
   @ApiBody({ type: UpdateUserPassword })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -130,12 +129,7 @@ export class UsersController {
     @Body() updateUserPassword: UpdateUserPassword,
     @Request() req: AuthenticatedRequest,
   ) {
-    try {
-      await this.usersService.updatePassword(req.user.id, updateUserPassword);
-    } catch (error) {
-      if (error instanceof NotFoundException) throw new InternalServerErrorException({ message: "Error updating password" });
-      throw error;
-    }
+    await this.usersService.updatePassword(req.user.id, updateUserPassword);
     return { message: "User updated successfully" };
   }
 

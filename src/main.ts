@@ -18,7 +18,7 @@ async function bootstrap() {
 
   // This somehow works idk
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  app.getHttpAdapter().getInstance().set('trust proxy', true); // Enable if behind a reverse proxy (e.g., for correct client IP logging)
+  app.getHttpAdapter().getInstance().set("trust proxy", true); // Enable if behind a reverse proxy (e.g., for correct client IP logging)
   const configService = app.get<ConfigService>(ConfigService);
   const logger = app.get<LoggerService>(LoggerService);
   app.useLogger(logger);
@@ -57,7 +57,10 @@ async function bootstrap() {
 
   const allowedOriginsEnv = configService.getOrThrow<string>("ALLOWED_ORIGINS");
   app.enableCors({
-    origin: allowedOriginsEnv.split(",").map((s) => s.trim()).filter(Boolean),
+    origin: allowedOriginsEnv
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
     credentials: true,
   });
 
@@ -75,7 +78,10 @@ async function bootstrap() {
       "REST API.\n\n" +
         "**Authentication:** Authenticated endpoints accept either an `Authorization: Bearer <jwt>` header " +
         "or an HttpOnly `accessToken` cookie. The Swagger UI **Authorize** dialog accepts the bearer token; " +
-        "browser clients automatically send the cookie when CORS credentials are enabled.",
+        "browser clients automatically send the cookie when CORS credentials are enabled.\n\n" +
+        "**CSRF protection:** All state-mutating requests (POST, PUT, PATCH, DELETE) must include the header " +
+        "`X-Requested-With: XMLHttpRequest`. This header is added automatically by the Swagger UI below. " +
+        "Frontend clients must include it on every mutating request.",
     )
     .setVersion("1.0")
     .addBearerAuth(
@@ -85,8 +91,25 @@ async function bootstrap() {
     .build();
 
   const document: OpenAPIObject = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api", app, document, {
+  SwaggerModule.setup("", app, document, {
     swaggerOptions: { persistAuthorization: true },
+    /**
+     * Patch window.fetch so Swagger UI automatically attaches the required
+     * CSRF header on every request. This does not affect non-browser clients
+     * (curl, Postman, etc.) — they must add the header themselves.
+     */
+    customJsStr: `
+      (function () {
+        var _orig = window.fetch;
+        window.fetch = function (input, init) {
+          init = Object.assign({}, init);
+          var headers = new Headers(init.headers);
+          headers.set('X-Requested-With', 'XMLHttpRequest');
+          init.headers = headers;
+          return _orig.call(this, input, init);
+        };
+      })();
+    `,
   });
 
   const port = process.env.PORT ?? 5200;

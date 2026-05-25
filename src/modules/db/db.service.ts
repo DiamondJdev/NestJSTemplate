@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   BadRequestException,
   Logger,
+  NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
@@ -174,12 +175,12 @@ export class DbService {
   /**
    * Removes a user by id.
    *
-   * @throws BadRequestException if user is not found
+   * @throws NotFoundException if user is not found
    */
   async remove(uuid: string): Promise<void> {
     const result = await this.userRepository.delete({ id: uuid });
     if (result.affected === 0)
-      throw new BadRequestException("Could not find user to delete");
+      throw new NotFoundException("Could not find user to delete");
     await this.cacheService.del(
       CacheKeys.userSafe(uuid),
       CacheKeys.userRole(uuid),
@@ -191,7 +192,7 @@ export class DbService {
   /**
    * Updates a user's password.
    *
-   * @throws BadRequestException if user is not found
+   * @throws NotFoundException if user is not found
    */
   async updatePassword(
     uuid: string,
@@ -207,7 +208,7 @@ export class DbService {
       { password: hashedPassword },
     );
     if (result.affected === 0)
-      throw new BadRequestException("Could not find user to update");
+      throw new NotFoundException("Could not find user to update");
     await this.cacheService.del(CacheKeys.userSafe(uuid));
     await this.clearRefreshToken(uuid); // Logout and clear refresh token
   }
@@ -215,13 +216,13 @@ export class DbService {
   /**
    * Updates a user's roles.
    *
-   * @throws BadRequestException if roles are invalid or user not found
+   * @throws NotFoundException if roles are invalid or user not found
    */
   async updateRole(uuid: string, roles: UserRole[]): Promise<void> {
     if (!isValidRoles(roles)) throw new BadRequestException("Invalid roles");
     const result = await this.userRepository.update({ id: uuid }, { roles });
     if (result.affected === 0)
-      throw new BadRequestException("Could not find user to update roles");
+      throw new NotFoundException("Could not find user to update roles");
     await this.cacheService.del(
       CacheKeys.userSafe(uuid),
       CacheKeys.userRole(uuid),
@@ -233,7 +234,7 @@ export class DbService {
    * Saves a refresh token hash and expiry for the user.
    * Always written atomically with the DB — the cache key is always current.
    *
-   * @throws BadRequestException if user not found
+   * @throws NotFoundException if user not found
    */
   async saveRefreshToken(
     userId: string,
@@ -245,7 +246,7 @@ export class DbService {
       { refreshTokenHash, refreshTokenExpiresAt },
     );
     if (result.affected === 0)
-      throw new BadRequestException(
+      throw new NotFoundException(
         "Could not find user to save refresh token",
       );
 
@@ -260,7 +261,7 @@ export class DbService {
   /**
    * Clears a user's refresh token and expiration (logout/revoke).
    *
-   * @throws BadRequestException if user not found
+   * @throws NotFoundException if user not found
    */
   async clearRefreshToken(userId: string): Promise<void> {
     const result = await this.userRepository.update(
@@ -268,7 +269,7 @@ export class DbService {
       { refreshTokenHash: null, refreshTokenExpiresAt: null },
     );
     if (result.affected === 0)
-      throw new BadRequestException(
+      throw new NotFoundException(
         "Could not find user to clear refresh token",
       );
     await this.cacheService.del(

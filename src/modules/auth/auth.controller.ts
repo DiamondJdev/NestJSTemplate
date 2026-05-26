@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -162,21 +163,21 @@ export class AuthController {
     description: "Tokens refreshed successfully.",
     type: AuthTokenResponseDto,
   })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Refresh token is ambiguous (provided in both body and cookie)." })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Refresh token is missing, invalid, or expired." })
   async refresh(
     @Request() req: AuthenticatedRequest,
     @Body() refreshTokenDto: RefreshTokenRequestDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    const refreshToken =
-      (req.cookies as Record<string, string> | undefined)?.["refreshToken"] ||
-      refreshTokenDto.refreshToken;
+    const refreshToken = req.cookies?.refreshToken as string | undefined  || refreshTokenDto.refreshToken;
+    
     if (!refreshToken)
       throw new UnauthorizedException("Refresh token is missing");
+    else if (req.cookies.refreshToken && refreshTokenDto.refreshToken)
+      throw new BadRequestException("Refresh token is ambiguous");
 
-    const result = await this.authService.refresh(
-      refreshToken,
-    );
+    const result = await this.authService.refresh(refreshToken);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
     return { ...result, token_type: "bearer" };
   }
@@ -201,8 +202,8 @@ export class AuthController {
   }
 
   @Get("me")
-  @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth("access-token")
   @ApiOperation({
     summary: "Get the authenticated user",

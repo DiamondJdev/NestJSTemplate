@@ -60,7 +60,7 @@ export class AuthController {
     return {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? "strict" : "lax",
+      sameSite: isProduction ? "none" : "lax",
       path: cookieType === "refresh" ? "/auth/refresh" : "/",
     };
   }
@@ -176,7 +176,7 @@ export class AuthController {
   @ApiOperation({
     summary: "Refresh access and refresh tokens",
     description:
-      "Rotates the user's tokens using the `refreshToken` HttpOnly cookie. New tokens are returned in the body and re-set as cookies. Rate limited to 10 refreshes/minute.",
+      "Rotates the user's tokens. The refresh token may be supplied via the `refreshToken` HttpOnly cookie or in the request body. New tokens are returned in the body and re-set as cookies. Rate limited to 10 refreshes/minute.",
   })
   @ApiBody({ type: RefreshTokenRequestDto })
   @ApiResponse({

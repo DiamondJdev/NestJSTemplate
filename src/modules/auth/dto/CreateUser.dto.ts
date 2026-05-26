@@ -25,7 +25,8 @@ export class CreateUserDto {
     format: "password",
   })
   @IsNotEmpty({ message: "Password is required" })
-  @IsString()
+  @IsString({ message: "Password must be a string" })
+
   @IsStrongPassword(
     {
       minLength: 12,

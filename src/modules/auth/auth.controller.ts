@@ -53,12 +53,14 @@ export class AuthController {
     return ms(raw);
   }
 
-  private getCookieBaseOptions(cookieType: "access" | "refresh"): CookieOptions {
+  private getCookieBaseOptions(
+    cookieType: "access" | "refresh",
+  ): CookieOptions {
     const isProduction = this.configService.get("NODE_ENV") === "production";
     return {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
+      sameSite: isProduction ? "strict" : "lax",
       path: cookieType === "refresh" ? "/auth/refresh" : "/",
     };
   }
@@ -99,9 +101,18 @@ export class AuthController {
     description: "Login successful.",
     type: AuthTokenResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Missing or malformed credentials." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Invalid username or password." })
-  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: "Too many login attempts." })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: "Missing or malformed credentials.",
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Invalid username or password.",
+  })
+  @ApiResponse({
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    description: "Too many login attempts.",
+  })
   async login(
     @Body() loginUserDto: LoginUserDto,
     @Response({ passthrough: true }) res: ExpressResponse,
@@ -132,9 +143,18 @@ export class AuthController {
     description: "User created and authenticated.",
     type: AuthTokenResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid input (e.g. weak password)." })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: "Username is already taken." })
-  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: "Too many registration attempts." })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: "Invalid input (e.g. weak password).",
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: "Username is already taken.",
+  })
+  @ApiResponse({
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    description: "Too many registration attempts.",
+  })
   async register(
     @Body() createUserDto: CreateUserDto,
     @Response({ passthrough: true }) res: ExpressResponse,
@@ -152,10 +172,11 @@ export class AuthController {
 
   @Patch("refresh")
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 10 } })
   @ApiOperation({
     summary: "Refresh access and refresh tokens",
     description:
-      "Rotates the user's tokens. The refresh token may be supplied in the request body or via the `refreshToken` HttpOnly cookie. New tokens are returned in the body and re-set as cookies.",
+      "Rotates the user's tokens using the `refreshToken` HttpOnly cookie. New tokens are returned in the body and re-set as cookies. Rate limited to 10 refreshes/minute.",
   })
   @ApiBody({ type: RefreshTokenRequestDto })
   @ApiResponse({
@@ -163,19 +184,34 @@ export class AuthController {
     description: "Tokens refreshed successfully.",
     type: AuthTokenResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Refresh token is ambiguous (provided in both body and cookie)." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Refresh token is missing, invalid, or expired." })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description:
+      "Refresh token is ambiguous (provided in both body and cookie).",
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Refresh token is missing, invalid, or expired.",
+  })
+  @ApiResponse({
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    description: "Too many refresh attempts.",
+  })
   async refresh(
     @Request() req: AuthenticatedRequest,
     @Body() refreshTokenDto: RefreshTokenRequestDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    const refreshToken = req.cookies?.refreshToken as string | undefined  || refreshTokenDto.refreshToken;
-    
+    const cookieToken = req.cookies?.refreshToken as string | undefined;
+    const bodyToken = refreshTokenDto.refreshToken;
+
+    if (cookieToken && bodyToken)
+      throw new BadRequestException("Refresh token is ambiguous");
+
+    const refreshToken = cookieToken || bodyToken;
+
     if (!refreshToken)
       throw new UnauthorizedException("Refresh token is missing");
-    else if (req.cookies.refreshToken && refreshTokenDto.refreshToken)
-      throw new BadRequestException("Refresh token is ambiguous");
 
     const result = await this.authService.refresh(refreshToken);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
@@ -191,8 +227,14 @@ export class AuthController {
     description:
       "Invalidates the user's refresh token server-side and clears the `accessToken` / `refreshToken` cookies.",
   })
-  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: "Logout successful." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: "Logout successful.",
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
   async logout(
     @Request() req: AuthenticatedRequest,
     @Response({ passthrough: true }) res: ExpressResponse,
@@ -214,10 +256,13 @@ export class AuthController {
     description: "Current user retrieved.",
     type: CurrentUserResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
-  getCurrentUser(
-    @Request() req: AuthenticatedRequest,
-  ): { data: { userId: string; username: string; roles: string[] } } {
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
+  getCurrentUser(@Request() req: AuthenticatedRequest): {
+    data: { userId: string; username: string; roles: string[] };
+  } {
     return {
       data: {
         userId: req.user.id,

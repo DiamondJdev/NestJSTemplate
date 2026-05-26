@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import bcrypt from "bcrypt";
 import { DbService } from "../db/db.service";
-import { JwtService } from "../jwt/jwt.service";
+import { JwtService, type JwtPayload } from "../jwt/jwt.service";
 import { CreateUserDto } from "./dto/createUser.dto";
 import { LoginUserDto } from "./dto/loginUser.dto";
 import { User } from "../core/entities/user.entity";
@@ -126,7 +126,23 @@ export class AuthService {
   async refresh(
     refreshToken: string,
   ): Promise<{ message: string; accessToken: string; refreshToken: string }> {
-    const userId = (await this.jwtService.verifyAndDecode(refreshToken)).sub;
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwtService.verifyAndDecode(refreshToken);
+    } catch {
+      this.logger.warn(
+        "JWT verification failed during token refresh",
+        "AuthService",
+      );
+      throw new UnauthorizedException("Invalid or expired refresh token");
+    }
+
+    const userId = payload.sub;
+    if (!userId) {
+      this.logger.warn("Refresh token missing sub claim", "AuthService");
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
     const storedUser = await this.dbService.findOne(userId, undefined);
     const storedHash = await this.dbService.getRefreshTokenHash(userId);
 
@@ -135,23 +151,27 @@ export class AuthService {
         `Failed refresh attempt for user ID: ${userId}`,
         "AuthService",
       );
-      throw new UnauthorizedException("Error validating refresh token");
+      throw new UnauthorizedException("Invalid or expired refresh token");
     }
 
     if (storedUser.refreshTokenExpiresAt < new Date()) {
-      throw new UnauthorizedException("Refresh token has expired");
+      this.logger.warn(
+        `Refresh token expired for user: ${userId}`,
+        "AuthService",
+      );
+      throw new UnauthorizedException("Invalid or expired refresh token");
     }
 
     const isValidToken = await this.jwtService.compareToken(
       refreshToken,
-      storedHash
+      storedHash,
     );
     if (!isValidToken) {
       this.logger.warn(
         `Invalid refresh token attempt for user: ${userId}`,
         "AuthService",
       );
-      throw new UnauthorizedException("Invalid refresh token");
+      throw new UnauthorizedException("Invalid or expired refresh token");
     }
 
     const {

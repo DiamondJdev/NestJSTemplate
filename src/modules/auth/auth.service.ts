@@ -129,9 +129,9 @@ export class AuthService {
     let payload: JwtPayload;
     try {
       payload = await this.jwtService.verifyAndDecode(refreshToken);
-    } catch {
+    } catch (error) {
       this.logger.warn(
-        "JWT verification failed during token refresh",
+        `JWT verification failed during token refresh: ${(error as Error).message}`,
         "AuthService",
       );
       throw new UnauthorizedException("Invalid or expired refresh token");

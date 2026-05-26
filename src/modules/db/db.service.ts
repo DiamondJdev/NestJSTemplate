@@ -57,20 +57,16 @@ export class DbService {
   /**
    * Returns all users (sanitized, cache-aside).
    */
-  async findAll(): Promise<User[]> {
-    const cached = await this.cacheService.get<UserCacheDto[]>(
-      CacheKeys.allUsers(),
+  async findAll(limit: number, page: number): Promise<User[]> {
+    const users = await this.userRepository.find({
+      take: limit,
+      skip: page * limit,
+    });
+    if (!users) throw new NotFoundException({ message: "No users found" });
+    // Removes sensitive fields by creating cache DTO (which excludes sensitive fields) and then reconstructing a User object from it.
+    return users.map((user) =>
+      this.reconstructUserFromCache(this.createUserCacheDto(user)),
     );
-    if (cached) return cached.map((dto) => this.reconstructUserFromCache(dto));
-
-    const users = await this.userRepository.find();
-    const safeUsers = users.map((user) => this.createUserCacheDto(user));
-    await this.cacheService.set(
-      CacheKeys.allUsers(),
-      safeUsers,
-      CacheTTL.ALL_USERS,
-    );
-    return users.map(u => this.reconstructUserFromCache(this.createUserCacheDto(u)));
   }
 
   /**
@@ -82,7 +78,6 @@ export class DbService {
   async create(user: User): Promise<User | undefined> {
     try {
       const created = await this.userRepository.save(user);
-      await this.cacheService.del(CacheKeys.allUsers());
       return created;
     } catch (error) {
       const meta = this.getCreateUserErrorMetadata(error);
@@ -185,7 +180,6 @@ export class DbService {
       CacheKeys.userSafe(uuid),
       CacheKeys.userRole(uuid),
       CacheKeys.refreshToken(uuid),
-      CacheKeys.allUsers(),
     );
   }
 
@@ -226,7 +220,6 @@ export class DbService {
     await this.cacheService.del(
       CacheKeys.userSafe(uuid),
       CacheKeys.userRole(uuid),
-      CacheKeys.allUsers(),
     );
   }
 
@@ -246,9 +239,7 @@ export class DbService {
       { refreshTokenHash, refreshTokenExpiresAt },
     );
     if (result.affected === 0)
-      throw new NotFoundException(
-        "Could not find user to save refresh token",
-      );
+      throw new NotFoundException("Could not find user to save refresh token");
 
     await this.cacheService.set(
       CacheKeys.refreshToken(userId),
@@ -269,9 +260,7 @@ export class DbService {
       { refreshTokenHash: null, refreshTokenExpiresAt: null },
     );
     if (result.affected === 0)
-      throw new NotFoundException(
-        "Could not find user to clear refresh token",
-      );
+      throw new NotFoundException("Could not find user to clear refresh token");
     await this.cacheService.del(
       CacheKeys.refreshToken(userId),
       CacheKeys.userSafe(userId),
@@ -317,7 +306,9 @@ export class DbService {
   private isMissingUsersRelation(error: unknown): boolean {
     const meta = this.getCreateUserErrorMetadata(error);
     if (meta.code === "42P01") return true;
-    return meta.message.toLowerCase().includes('relation "users" does not exist');
+    return meta.message
+      .toLowerCase()
+      .includes('relation "users" does not exist');
   }
 
   private getCreateUserErrorMetadata(error: unknown): {

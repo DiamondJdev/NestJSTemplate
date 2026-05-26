@@ -10,7 +10,6 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
-  InternalServerErrorException,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -52,11 +51,13 @@ export class UsersController {
     description: "Users retrieved.",
     type: UserListResponseDto,
   })
+  @ApiParam({ name: "limit", required: false, description: "Number of users to return (pagination)." })
+  @ApiParam({ name: "page", required: false, description: "Page number for pagination (0-indexed)." })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Caller is not an admin." })
-  async findAll() {
-    const users = await this.usersService.findAll();
-    if (!users) throw new NotFoundException({ message: "No users found" });
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "No users found." })
+  async findAll(@Param("limit") limit: number, @Param("page") page: number) {
+    const users = await this.usersService.findAll(limit, page);
     return {
       message: "Users retrieved successfully",
       data: users.map((user) => ({
@@ -90,6 +91,18 @@ export class UsersController {
         roles: req.user.roles,
       },
     };
+  }
+
+  @Delete("me")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Delete the caller's account",
+    description: "Permanently removes the caller's own account.",
+  })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: "User deleted." })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
+  async deleteMe(@Request() req: AuthenticatedRequest) {
+    await this.usersService.remove(req.user.id);
   }
 
   @Delete(":uuid")

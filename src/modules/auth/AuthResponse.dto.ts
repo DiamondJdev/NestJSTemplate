@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, MaxLength } from "class-validator";
+import { IsOptional, IsString, MaxLength } from "class-validator";
 
 class AuthUserDto {
   @ApiProperty({ format: "uuid" })
@@ -52,7 +52,8 @@ export class RefreshTokenRequestDto {
     description:
       "Refresh token. May be omitted if a `refreshToken` cookie is sent instead.",
   })
-  @IsString()
-  @MaxLength(512)
-  refreshToken?: string;
+  @IsOptional()
+  @IsString({ message: "Refresh token must be a string" })
+  @MaxLength(512, { message: "Refresh token must be less than 512 characters" })
+  refreshToken?: string | null;
 }

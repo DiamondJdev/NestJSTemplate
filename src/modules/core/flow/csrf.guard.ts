@@ -45,7 +45,7 @@ export class CsrfGuard implements CanActivate {
 
     if (headerValue !== CSRF_HEADER_VALUE) {
       throw new ForbiddenException(
-        `CSRF check failed. All mutating requests must include the header: '${CSRF_HEADER_NAME}: ${CSRF_HEADER_VALUE}'`,
+        "CSRF check failed. Check request headers and try again",
       );
     }
 

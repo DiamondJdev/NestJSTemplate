@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "../../jwt/jwt.service";
-import { DbService } from "../../db/db.service";
+import { UsersService } from "../../db/services/users.service";
 
 interface RequestWithUser {
   headers: { authorization?: string };
@@ -17,7 +17,7 @@ interface RequestWithUser {
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly dbService: DbService,
+    private readonly usersService: UsersService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,7 +44,7 @@ export class JwtAuthGuard implements CanActivate {
       if (!payload || !payload.sub)
         throw new UnauthorizedException("Invalid token");
 
-      const user = await this.dbService.findOne(payload.sub);
+      const user = await this.usersService.findOne(payload.sub);
       if (!user) throw new UnauthorizedException("User not found");
 
       request.user = {

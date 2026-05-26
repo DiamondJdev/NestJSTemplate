@@ -4,7 +4,8 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import bcrypt from "bcrypt";
-import { DbService } from "../db/db.service";
+import { UsersService } from "../db/services/users.service";
+import { RefreshTokenService } from "../db/services/refresh-token.service";
 import { JwtService, type JwtPayload } from "../jwt/jwt.service";
 import { CreateUserDto } from "./dto/createUser.dto";
 import { LoginUserDto } from "./dto/loginUser.dto";
@@ -20,7 +21,8 @@ const DUMMY_BCRYPT_HASH =
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly dbService: DbService,
+    private readonly usersService: UsersService,
+    private readonly refreshTokenService: RefreshTokenService,
     private readonly jwtService: JwtService,
     private readonly logger: LoggerService,
   ) {}
@@ -31,7 +33,7 @@ export class AuthService {
     refreshToken: string;
     user: { id: string; username: string; roles: string[] };
   }> {
-    const user: User | null = await this.dbService.findOneSensitive(
+    const user: User | null = await this.usersService.findOneSensitive(
       loginUserDto.username,
     );
     if (!user) this.logger.debug("Could not find user", "AuthService");
@@ -51,7 +53,7 @@ export class AuthService {
       throw new InternalServerErrorException("Error processing user data");
 
     const tokens = await this.jwtService.rotateTokens(user.id, user.roles);
-    await this.dbService.saveRefreshToken(
+    await this.refreshTokenService.saveRefreshToken(
       user.id,
       tokens.refreshTokenHash,
       tokens.refreshTokenExpiresAt,
@@ -93,7 +95,7 @@ export class AuthService {
       roles: [UserRole.USER],
     };
 
-    user = (await this.dbService.create(user)) as User;
+    user = (await this.usersService.create(user)) as User;
     if (!user || !user.id)
       throw new InternalServerErrorException("Error while creating user");
 
@@ -103,7 +105,7 @@ export class AuthService {
       refreshTokenHash,
       refreshTokenExpiresAt,
     } = await this.jwtService.rotateTokens(user.id, user.roles);
-    await this.dbService.saveRefreshToken(
+    await this.refreshTokenService.saveRefreshToken(
       user.id,
       refreshTokenHash,
       refreshTokenExpiresAt,
@@ -143,8 +145,9 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
-    const storedUser = await this.dbService.findOne(userId, undefined);
-    const storedHash = await this.dbService.getRefreshTokenHash(userId);
+    const storedUser = await this.usersService.findOne(userId, undefined);
+    const storedHash =
+      await this.refreshTokenService.getRefreshTokenHash(userId);
 
     if (!storedUser || !storedHash || !storedUser.refreshTokenExpiresAt) {
       this.logger.error(
@@ -180,7 +183,7 @@ export class AuthService {
       refreshTokenHash,
       refreshTokenExpiresAt,
     } = await this.jwtService.rotateTokens(userId, storedUser.roles);
-    await this.dbService.saveRefreshToken(
+    await this.refreshTokenService.saveRefreshToken(
       userId,
       refreshTokenHash,
       refreshTokenExpiresAt,
@@ -200,7 +203,7 @@ export class AuthService {
   }
 
   async invalidateUserTokens(userId: string): Promise<void> {
-    await this.dbService.clearRefreshToken(userId);
+    await this.refreshTokenService.clearRefreshToken(userId);
     this.logger.logUserStats("logout", userId);
   }
 }

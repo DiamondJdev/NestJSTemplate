@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { HealthController } from "./health.controller";
-import { DbService } from "../../../db/db.service";
+import { DbHealthService } from "../../../db/services/db-health.service";
 import { CacheService } from "../../../cache/cache.service";
 import { LoggerService } from "../../logging/services/logger.service";
 
@@ -12,7 +12,7 @@ describe("HealthController", () => {
       controllers: [HealthController],
       providers: [
         {
-          provide: DbService,
+          provide: DbHealthService,
           useValue: { healthCheck: jest.fn().mockResolvedValue(true) },
         },
         {

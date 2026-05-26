@@ -19,7 +19,7 @@ import {
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
-import { DbService } from "../db/db.service";
+import { UsersService } from "../db/services/users.service";
 import { UpdateUserPassword } from "../core/dto/updatePassword.dto";
 import {
   CurrentUserResponseDto,
@@ -37,7 +37,7 @@ import type { AuthenticatedRequest } from "../core/AuthenticatedRequest";
 @Controller("users")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly usersService: DbService) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Get()
   @Roles(UserRole.ADMIN)
@@ -51,10 +51,24 @@ export class UsersController {
     description: "Users retrieved.",
     type: UserListResponseDto,
   })
-  @ApiParam({ name: "limit", required: false, description: "Number of users to return (pagination)." })
-  @ApiParam({ name: "page", required: false, description: "Page number for pagination (0-indexed)." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Caller is not an admin." })
+  @ApiParam({
+    name: "limit",
+    required: false,
+    description: "Number of users to return (pagination).",
+  })
+  @ApiParam({
+    name: "page",
+    required: false,
+    description: "Page number for pagination (0-indexed).",
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: "Caller is not an admin.",
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "No users found." })
   async findAll(@Param("limit") limit: number, @Param("page") page: number) {
     const users = await this.usersService.findAll(limit, page);
@@ -81,7 +95,10 @@ export class UsersController {
     description: "Current user retrieved.",
     type: CurrentUserResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
   findMe(@Request() req: AuthenticatedRequest) {
     return {
       message: "User retrieved successfully",
@@ -100,7 +117,10 @@ export class UsersController {
     description: "Permanently removes the caller's own account.",
   })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: "User deleted." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
   async deleteMe(@Request() req: AuthenticatedRequest) {
     await this.usersService.remove(req.user.id);
   }
@@ -110,12 +130,19 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: "Delete a user",
-    description: "Admin-only. Permanently removes the user identified by `uuid`.",
+    description:
+      "Admin-only. Permanently removes the user identified by `uuid`.",
   })
   @ApiParam({ name: "uuid", format: "uuid", description: "Target user UUID." })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: "User deleted." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Caller is not an admin." })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: "Caller is not an admin.",
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
   async deleteUser(@Param("uuid") uuid: string) {
     await this.usersService.remove(uuid);
@@ -126,7 +153,8 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Update a user's password",
-    description: "This route is exclusively for updating the caller's own password.",
+    description:
+      "This route is exclusively for updating the caller's own password.",
   })
   @ApiBody({ type: UpdateUserPassword })
   @ApiResponse({
@@ -134,9 +162,18 @@ export class UsersController {
     description: "Password updated.",
     type: UserUpdatedResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid body or weak password." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Cannot update another user without admin role." })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: "Invalid body or weak password.",
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: "Cannot update another user without admin role.",
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
   async updatePassword(
     @Body() updateUserPassword: UpdateUserPassword,
@@ -151,7 +188,8 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Admin password reset",
-    description: "Admin-only. Resets the password for the user identified by `uuid`.",
+    description:
+      "Admin-only. Resets the password for the user identified by `uuid`.",
   })
   @ApiParam({ name: "uuid", format: "uuid", description: "Target user UUID." })
   @ApiBody({ type: UpdateUserPassword })
@@ -160,9 +198,18 @@ export class UsersController {
     description: "Password updated.",
     type: UserUpdatedResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Invalid body or weak password." })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Caller is not an admin." })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: "Invalid body or weak password.",
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: "Caller is not an admin.",
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
   async adminUpdatePassword(
     @Param("uuid") uuid: string,
@@ -171,7 +218,8 @@ export class UsersController {
     try {
       await this.usersService.updatePassword(uuid, updateUserPassword);
     } catch (error) {
-      if (error instanceof NotFoundException) throw new NotFoundException({ message: "User not found" });
+      if (error instanceof NotFoundException)
+        throw new NotFoundException({ message: "User not found" });
       throw error;
     }
     return { message: "User updated successfully" };

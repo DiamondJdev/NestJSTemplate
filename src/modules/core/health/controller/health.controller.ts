@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { DbService } from "../../../db/db.service";
+import { DbHealthService } from "../../../db/services/db-health.service";
 import { CacheService } from "../../../cache/cache.service";
 import { LoggerService } from "../../logging/services/logger.service";
 import { HealthCheckResponseDto } from "../dto/health-check.response.dto";
@@ -15,7 +15,7 @@ import { HealthCheckResponseDto } from "../dto/health-check.response.dto";
 @Controller()
 export class HealthController {
   constructor(
-    private readonly dbService: DbService,
+    private readonly dbService: DbHealthService,
     private readonly cacheService: CacheService,
     private readonly logger: LoggerService,
   ) {}
@@ -58,8 +58,7 @@ export class HealthController {
     // const cacheAlive = await this.cacheService.ping();
     const cacheAlive = true;
     cacheLatency = Date.now() - cacheStart;
-    cacheStatus =
-      cacheAlive && cacheLatency < 1000 ? "healthy" : "unhealthy";
+    cacheStatus = cacheAlive && cacheLatency < 1000 ? "healthy" : "unhealthy";
 
     if (
       !(

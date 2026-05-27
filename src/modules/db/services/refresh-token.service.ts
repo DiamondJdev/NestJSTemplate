@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { User } from "../../core/entities/user.entity";
@@ -8,8 +8,6 @@ import { CacheTTL } from "../../cache/constants/cache-ttl";
 
 @Injectable()
 export class RefreshTokenService {
-  private readonly logger = new Logger(RefreshTokenService.name);
-
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,

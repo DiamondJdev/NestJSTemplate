@@ -10,12 +10,16 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Query,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -51,15 +55,15 @@ export class UsersController {
     description: "Users retrieved.",
     type: UserListResponseDto,
   })
-  @ApiParam({
+  @ApiQuery({
     name: "limit",
     required: false,
-    description: "Number of users to return (pagination).",
+    description: "Number of users to return (pagination). Defaults to 50.",
   })
-  @ApiParam({
+  @ApiQuery({
     name: "page",
     required: false,
-    description: "Page number for pagination (0-indexed).",
+    description: "Page number for pagination (0-indexed). Defaults to 0.",
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
@@ -70,7 +74,10 @@ export class UsersController {
     description: "Caller is not an admin.",
   })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "No users found." })
-  async findAll(@Param("limit") limit: number, @Param("page") page: number) {
+  async findAll(
+    @Query("limit", new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query("page", new DefaultValuePipe(0), ParseIntPipe) page: number,
+  ) {
     const users = await this.usersService.findAll(limit, page);
     return {
       message: "Users retrieved successfully",

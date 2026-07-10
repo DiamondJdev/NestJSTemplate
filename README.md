@@ -27,6 +27,7 @@
 - [🎯 Opinionated Decisions](#-opinionated-decisions)
 - [📐 Architecture](#-architecture)
 - [⚡ Quickstart](#-quickstart)
+- [🐳 Docker](#-running-with-docker)
 - [🔐 Environment Variables](#-environment-variables)
 - [📡 API Reference](#-api-reference)
 - [🔑 Authentication Flow](#-authentication-flow)
@@ -315,6 +316,60 @@ curl -X POST http://localhost:8080/auth/register \
 curl http://localhost:8080/auth/me \
   -H "Authorization: Bearer <your-access-token>"
 ```
+
+---
+
+## 🐳 Running with Docker
+
+Prerequisites: Docker Desktop (or Docker Engine + Compose v2).
+
+1. Copy the env template and fill in secrets:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   The stack reads `ALLOWED_ORIGINS`, `JWT_SECRET`, `TOKEN_ENCRYPTION_KEY`, and the
+   `UPSTASH_*` keys from `.env`; without them the API crashes on boot. Compose
+   overrides `DATABASE_URL`/`PORT` so the container always uses the bundled
+   Postgres on port 5200.
+
+2. Start the dev stack (API + Postgres):
+
+   ```bash
+   docker compose up --build
+   ```
+
+   - API: http://localhost:5200
+   - Swagger UI: http://localhost:5200/
+   - Health check: http://localhost:5200/health
+   - Postgres: localhost:5432 (`template_dev`; a sibling `template_test` DB is
+     created automatically on first boot for the e2e suite)
+
+   Editing files under `src/` hot-reloads the running container. Note: the file
+   watcher detects the change and triggers a rebuild, but the restarted process
+   can fail to bind port 5200 if the previous process hasn't released it yet (no
+   graceful shutdown handling in this template) — the old process then keeps
+   serving stale code. If your changes don't seem to take effect, run
+   `docker compose restart api`.
+
+3. Stop the stack (Postgres data persists in the `postgres_data` volume):
+
+   ```bash
+   docker compose down
+   ```
+
+### Production image
+
+Build the lean production image from the multi-stage Dockerfile's `prod` target:
+
+```bash
+docker build --target prod -t template-backend:prod .
+```
+
+It compiles to `dist/`, installs production-only dependencies, and runs
+`node dist/main`. Supply `DATABASE_URL`, `ALLOWED_ORIGINS`, and other env vars at
+runtime via your orchestrator.
 
 ---
 

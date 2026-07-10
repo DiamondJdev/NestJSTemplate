@@ -45,7 +45,6 @@ lerna-debug.log*
 .temp
 .tmp
 .sqlite
-package-lock.json
 .prettierrc
 
 # Runtime data

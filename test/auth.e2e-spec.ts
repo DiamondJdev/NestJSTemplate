@@ -150,8 +150,6 @@ describe("Auth (e2e)", () => {
 
     beforeEach(async () => {
       tokens = await mintTokensFor(ctx, user);
-      // Ensure tokens generated in different seconds so JWT iat differs
-      await new Promise((resolve) => setTimeout(resolve, 1000));
     });
 
     it("rotates tokens using the refreshToken cookie", async () => {
@@ -163,7 +161,7 @@ describe("Auth (e2e)", () => {
 
       expect(response.status).toBe(200);
       expect(response.body.accessToken).toEqual(expect.any(String));
-      expect(response.body.refreshToken).not.toBe(tokens.refreshToken);
+      expect(response.body.refreshToken).toEqual(expect.any(String));
     });
 
     it("rotates tokens using a refreshToken in the body", async () => {
@@ -175,6 +173,28 @@ describe("Auth (e2e)", () => {
       expect(response.status).toBe(200);
       expect(response.body.accessToken).toEqual(expect.any(String));
     });
+
+    it("invalidates the previous refresh token after rotation", async () => {
+      // JWTs here have second-level `iat` precision and no nonce in the
+      // payload, so two tokens minted for the same user within the same
+      // wall-clock second can be byte-identical. A full 1s wait guarantees
+      // the pre- and post-rotation tokens land in different iat seconds,
+      // so this is the one place in the file that needs a real delay —
+      // isolated to this single test rather than the whole describe block.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const rotateResponse = await request(ctx.app.getHttpServer())
+        .patch("/auth/refresh")
+        .set(CSRF_HEADER)
+        .send({ refreshToken: tokens.refreshToken });
+      expect(rotateResponse.status).toBe(200);
+
+      const reuseOldToken = await request(ctx.app.getHttpServer())
+        .patch("/auth/refresh")
+        .set(CSRF_HEADER)
+        .send({ refreshToken: tokens.refreshToken });
+      expect(reuseOldToken.status).toBe(401);
+    }, 10000);
 
     it("rejects an ambiguous request with the token in both cookie and body with 400", async () => {
       const response = await request(ctx.app.getHttpServer())

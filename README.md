@@ -368,7 +368,7 @@ docker build --target prod -t template-backend:prod .
 ```
 
 It compiles to `dist/`, installs production-only dependencies, and runs
-`node dist/main`. Supply `DATABASE_URL`, `ALLOWED_ORIGINS`, and other env vars at
+`node dist/src/main`. Supply `DATABASE_URL`, `ALLOWED_ORIGINS`, and other env vars at
 runtime via your orchestrator.
 
 ---

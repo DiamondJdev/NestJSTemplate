@@ -13,6 +13,12 @@ import {
   TestUser,
 } from "./support/user-factory";
 import { UserRole } from "../src/modules/core/utils/userRole.enum";
+import { typedBody } from "./support/typed-response";
+
+interface RolesResponse {
+  message: string;
+  roles: string[];
+}
 
 describe("Roles (e2e)", () => {
   let ctx: TestAppContext;
@@ -52,7 +58,7 @@ describe("Roles (e2e)", () => {
         .set(authHeader(regularAToken));
 
       expect(response.status).toBe(200);
-      expect(response.body.roles).toEqual(["user"]);
+      expect(typedBody<RolesResponse>(response).roles).toEqual(["user"]);
     });
 
     it("rejects an unauthenticated caller with 401", async () => {
@@ -69,7 +75,7 @@ describe("Roles (e2e)", () => {
         .set(authHeader(regularAToken));
 
       expect(response.status).toBe(200);
-      expect(response.body.roles).toEqual(["user"]);
+      expect(typedBody<RolesResponse>(response).roles).toEqual(["user"]);
     });
 
     it("rejects a non-admin caller viewing another user's roles with 403", async () => {
@@ -86,7 +92,7 @@ describe("Roles (e2e)", () => {
         .set(authHeader(adminToken));
 
       expect(response.status).toBe(200);
-      expect(response.body.roles).toEqual(["user"]);
+      expect(typedBody<RolesResponse>(response).roles).toEqual(["user"]);
     });
 
     it("returns 404 for an unknown uuid", async () => {

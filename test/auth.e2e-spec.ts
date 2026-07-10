@@ -13,6 +13,26 @@ import {
   CSRF_HEADER,
   TestUser,
 } from "./support/user-factory";
+import { typedBody } from "./support/typed-response";
+
+interface AuthTokenResponse {
+  message: string;
+  accessToken: string;
+  refreshToken: string;
+  user: { id: string; username: string; roles: string[] };
+  token_type: string;
+}
+
+interface RefreshResponse {
+  message: string;
+  accessToken: string;
+  refreshToken: string;
+  token_type: string;
+}
+
+interface CurrentUserResponse {
+  data: { userId: string; username: string; roles: string[] };
+}
 
 describe("Auth (e2e)", () => {
   let ctx: TestAppContext;
@@ -37,18 +57,19 @@ describe("Auth (e2e)", () => {
         .set(CSRF_HEADER)
         .send({ username, password: "Str0ng!Passw0rd" });
 
+      const body = typedBody<AuthTokenResponse>(response);
       expect(response.status).toBe(201);
-      expect(response.body.message).toBe("User registered successfully");
-      expect(response.body.accessToken).toEqual(expect.any(String));
-      expect(response.body.refreshToken).toEqual(expect.any(String));
-      expect(response.body.user).toMatchObject({ username, roles: ["user"] });
-      expect(response.body.token_type).toBe("bearer");
+      expect(body.message).toBe("User registered successfully");
+      expect(body.accessToken).toEqual(expect.any(String));
+      expect(body.refreshToken).toEqual(expect.any(String));
+      expect(body.user).toMatchObject({ username, roles: ["user"] });
+      expect(body.token_type).toBe("bearer");
 
       const cookies = response.headers["set-cookie"] as unknown as string[];
       expect(cookies.some((c) => c.startsWith("accessToken="))).toBe(true);
       expect(cookies.some((c) => c.startsWith("refreshToken="))).toBe(true);
 
-      createdUserIds.push(response.body.user.id as string);
+      createdUserIds.push(body.user.id);
     });
 
     it("rejects a duplicate username with 409", async () => {
@@ -104,9 +125,10 @@ describe("Auth (e2e)", () => {
         .set(CSRF_HEADER)
         .send({ username: user.username, password: user.password });
 
+      const body = typedBody<AuthTokenResponse>(response);
       expect(response.status).toBe(200);
-      expect(response.body.accessToken).toEqual(expect.any(String));
-      expect(response.body.user.username).toBe(user.username);
+      expect(body.accessToken).toEqual(expect.any(String));
+      expect(body.user.username).toBe(user.username);
 
       const cookies = response.headers["set-cookie"] as unknown as string[];
       expect(cookies.some((c) => c.startsWith("accessToken="))).toBe(true);
@@ -159,9 +181,10 @@ describe("Auth (e2e)", () => {
         .set("Cookie", `refreshToken=${tokens.refreshToken}`)
         .send({});
 
+      const body = typedBody<RefreshResponse>(response);
       expect(response.status).toBe(200);
-      expect(response.body.accessToken).toEqual(expect.any(String));
-      expect(response.body.refreshToken).toEqual(expect.any(String));
+      expect(body.accessToken).toEqual(expect.any(String));
+      expect(body.refreshToken).toEqual(expect.any(String));
     });
 
     it("rotates tokens using a refreshToken in the body", async () => {
@@ -171,7 +194,9 @@ describe("Auth (e2e)", () => {
         .send({ refreshToken: tokens.refreshToken });
 
       expect(response.status).toBe(200);
-      expect(response.body.accessToken).toEqual(expect.any(String));
+      expect(typedBody<RefreshResponse>(response).accessToken).toEqual(
+        expect.any(String),
+      );
     });
 
     it("invalidates the previous refresh token after rotation", async () => {
@@ -269,7 +294,7 @@ describe("Auth (e2e)", () => {
         .set(authHeader(tokens.accessToken));
 
       expect(response.status).toBe(200);
-      expect(response.body.data).toMatchObject({
+      expect(typedBody<CurrentUserResponse>(response).data).toMatchObject({
         userId: user.id,
         username: user.username,
         roles: ["user"],
@@ -286,7 +311,9 @@ describe("Auth (e2e)", () => {
         .set("Cookie", `accessToken=${tokens.accessToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body.data.userId).toBe(user.id);
+      expect(typedBody<CurrentUserResponse>(response).data.userId).toBe(
+        user.id,
+      );
     });
 
     it("rejects a request with no token with 401", async () => {

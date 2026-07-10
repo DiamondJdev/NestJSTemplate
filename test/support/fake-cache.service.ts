@@ -10,10 +10,13 @@ export class FakeCacheService {
   private readonly store = new Map<string, unknown>();
 
   get<T>(key: string): Promise<T | null> {
-    return Promise.resolve(this.store.has(key) ? (this.store.get(key) as T) : null);
+    return Promise.resolve(
+      this.store.has(key) ? (this.store.get(key) as T) : null,
+    );
   }
 
-  set<T>(key: string, value: T, _ttlSeconds?: number): Promise<void> {
+  // TTL is intentionally ignored — this fake only needs to outlive one test run.
+  set<T>(key: string, value: T): Promise<void> {
     this.store.set(key, value);
     return Promise.resolve();
   }

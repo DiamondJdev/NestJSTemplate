@@ -15,6 +15,16 @@ import {
   TestUser,
 } from "./support/user-factory";
 import { UserRole } from "../src/modules/core/utils/userRole.enum";
+import { typedBody } from "./support/typed-response";
+
+interface UserListResponse {
+  message: string;
+  data: { id: string; username: string; roles: string[] }[];
+}
+
+interface CurrentUserResponse {
+  data: { id: string; username: string; roles: string[] };
+}
 
 describe("Users (e2e)", () => {
   let ctx: TestAppContext;
@@ -50,7 +60,7 @@ describe("Users (e2e)", () => {
         .set(authHeader(adminToken));
 
       expect(response.status).toBe(200);
-      const usernames = (response.body.data as { username: string }[]).map(
+      const usernames = typedBody<UserListResponse>(response).data.map(
         (u) => u.username,
       );
       expect(usernames).toEqual(
@@ -80,7 +90,7 @@ describe("Users (e2e)", () => {
         .set(authHeader(regularToken));
 
       expect(response.status).toBe(200);
-      expect(response.body.data).toMatchObject({
+      expect(typedBody<CurrentUserResponse>(response).data).toMatchObject({
         id: regular.id,
         username: regular.username,
         roles: ["user"],
@@ -157,7 +167,9 @@ describe("Users (e2e)", () => {
 
       const stored = await ctx.usersService.findOneSensitive(user.username);
       expect(stored).not.toBeNull();
-      await expect(bcrypt.compare(newPassword, stored!.password)).resolves.toBe(true);
+      await expect(bcrypt.compare(newPassword, stored!.password)).resolves.toBe(
+        true,
+      );
     });
 
     it("rejects a weak password with 400", async () => {
@@ -191,7 +203,9 @@ describe("Users (e2e)", () => {
 
       const stored = await ctx.usersService.findOneSensitive(target.username);
       expect(stored).not.toBeNull();
-      await expect(bcrypt.compare(newPassword, stored!.password)).resolves.toBe(true);
+      await expect(bcrypt.compare(newPassword, stored!.password)).resolves.toBe(
+        true,
+      );
     });
 
     it("rejects a non-admin caller with 403", async () => {

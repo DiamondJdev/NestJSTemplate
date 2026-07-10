@@ -45,7 +45,6 @@ lerna-debug.log*
 .temp
 .tmp
 .sqlite
-package-lock.json
 .prettierrc
 
 # Runtime data
@@ -53,6 +52,10 @@ pids
 *.pid
 *.seed
 *.pid.lock
+
+# AI
+./claude
+./superpowers
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

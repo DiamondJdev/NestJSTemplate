@@ -33,4 +33,4 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json ./
 EXPOSE 5200
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]

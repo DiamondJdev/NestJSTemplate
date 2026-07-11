@@ -2,10 +2,11 @@ import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { JwtService as NestJwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
+import * as crypto from "crypto";
 import ms, { type StringValue } from "ms";
 
 export interface JwtPayload {
-  sub: string;     // userId
+  sub: string; // userId
   roles: string[]; // user roles
 }
 
@@ -26,10 +27,22 @@ export class JwtService {
     });
   }
 
+  /**
+   * bcrypt silently truncates input at 72 bytes. Refresh tokens are full
+   * JWTs (200+ chars) that share an identical prefix per user (header +
+   * partial sub claim), so hashing/comparing them directly made rotation
+   * a no-op — any two tokens for the same user collided under bcrypt.
+   * Pre-hashing with SHA-256 folds the entire token into a fixed 64-char
+   * digest before bcrypt ever sees it, so no token content is discarded.
+   */
+  private digestToken(token: string): string {
+    return crypto.createHash("sha256").update(token).digest("hex");
+  }
+
   async hashToken(token: string): Promise<string> {
     try {
       const salt: string = await bcrypt.genSalt(10);
-      return await bcrypt.hash(token, salt);
+      return await bcrypt.hash(this.digestToken(token), salt);
     } catch {
       throw new InternalServerErrorException("Error processing token");
     }
@@ -37,7 +50,7 @@ export class JwtService {
 
   async compareToken(token: string, hash: string): Promise<boolean> {
     try {
-      return await bcrypt.compare(token, hash);
+      return await bcrypt.compare(this.digestToken(token), hash);
     } catch {
       throw new InternalServerErrorException("Error processing token");
     }

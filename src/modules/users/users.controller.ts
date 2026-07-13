@@ -30,7 +30,6 @@ import {
   UserListResponseDto,
   UserUpdatedResponseDto,
 } from "./dto/users.response.dto";
-import { JwtAuthGuard } from "../auth/guard/jwt-auth.guard";
 import { RolesGuard } from "../core/flow/roles.guard";
 import { Roles } from "../core/flow/roles.decorator";
 import { UserRole } from "../core/utils/userRole.enum";
@@ -39,7 +38,7 @@ import type { AuthenticatedRequest } from "../core/AuthenticatedRequest";
 @ApiTags("Users")
 @ApiBearerAuth("access-token")
 @Controller("users")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

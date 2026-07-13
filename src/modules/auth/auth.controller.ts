@@ -27,7 +27,8 @@ import ms, { type StringValue } from "ms";
 import type { CookieOptions, Response as ExpressResponse } from "express";
 import { AuthService } from "./auth.service";
 import { BodyRequiredGuard } from "./guard/body-required.guard";
-import { JwtAuthGuard } from "./guard/jwt-auth.guard";
+import { LocalAuthGuard } from "./guard/local-auth.guard";
+import { Public } from "../core/flow/public.decorator";
 import { CreateUserDto } from "./dto/createUser.dto";
 import { LoginUserDto } from "./dto/loginUser.dto";
 import {
@@ -87,9 +88,10 @@ export class AuthController {
   }
 
   @Post("login")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ short: { ttl: 60000, limit: 5 } })
-  @UseGuards(BodyRequiredGuard)
+  @UseGuards(BodyRequiredGuard, LocalAuthGuard)
   @ApiOperation({
     summary: "Authenticate a user",
     description:
@@ -114,7 +116,7 @@ export class AuthController {
     description: "Too many login attempts.",
   })
   async login(
-    @Body() loginUserDto: LoginUserDto,
+    @Request() req: AuthenticatedRequest,
     @Response({ passthrough: true }) res: ExpressResponse,
   ): Promise<{
     message: string;
@@ -123,12 +125,14 @@ export class AuthController {
     user: { id: string; username: string; roles: string[] };
     token_type: string;
   }> {
-    const result = await this.authService.login(loginUserDto);
+    // req.user is populated by LocalStrategy after credential validation.
+    const result = await this.authService.issueTokensForUser(req.user);
     this.setAuthCookies(res, result.accessToken, result.refreshToken);
     return { ...result, token_type: "bearer" };
   }
 
   @Post("register")
+  @Public()
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ short: { ttl: 60000, limit: 5 } })
   @UseGuards(BodyRequiredGuard)
@@ -171,6 +175,7 @@ export class AuthController {
   }
 
   @Patch("refresh")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ short: { ttl: 60000, limit: 10 } })
   @ApiOperation({
@@ -220,7 +225,6 @@ export class AuthController {
 
   @Delete("logout")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth("access-token")
   @ApiOperation({
     summary: "Log out the current user",
@@ -244,7 +248,6 @@ export class AuthController {
   }
 
   @Get("me")
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth("access-token")
   @ApiOperation({

@@ -10,6 +10,7 @@ import { DbHealthService } from "../../../db/services/db-health.service";
 import { CacheService } from "../../../cache/cache.service";
 import { LoggerService } from "../../logging/services/logger.service";
 import { HealthCheckResponseDto } from "../dto/health-check.response.dto";
+import { Public } from "../../flow/public.decorator";
 
 @ApiTags("Health")
 @Controller()
@@ -21,6 +22,7 @@ export class HealthController {
   ) {}
 
   @Get("/health")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "API health check",
@@ -60,13 +62,11 @@ export class HealthController {
     cacheLatency = Date.now() - cacheStart;
     cacheStatus = cacheAlive && cacheLatency < 1000 ? "healthy" : "unhealthy";
 
-    if (
-      !(
-        backendStatus === "healthy" &&
-        databaseStatus === "healthy" &&
-        cacheStatus === "healthy"
-      )
-    ) {
+    if (!(
+      backendStatus === "healthy" &&
+      databaseStatus === "healthy" &&
+      cacheStatus === "healthy"
+    )) {
       const brokenServices: string[] = [];
       if (backendStatus !== "healthy") brokenServices.push("Backend");
       if (databaseStatus !== "healthy")

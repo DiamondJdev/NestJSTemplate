@@ -17,7 +17,6 @@ import {
 } from "@nestjs/swagger";
 import { RolesService } from "./roles.service";
 import { RolesResponseDto } from "./dto/roles.response.dto";
-import { JwtAuthGuard } from "../auth/guard/jwt-auth.guard";
 import { RolesGuard } from "../core/flow/roles.guard";
 import { Roles } from "../core/flow/roles.decorator";
 import { UserRole } from "../core/utils/userRole.enum";
@@ -26,7 +25,7 @@ import type { AuthenticatedRequest } from "../core/AuthenticatedRequest";
 @ApiTags("Roles")
 @ApiBearerAuth("access-token")
 @Controller("roles")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.USER)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
@@ -42,7 +41,10 @@ export class RolesController {
     description: "Roles retrieved successfully.",
     type: RolesResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
   async getUserRole(
     @Request() req: AuthenticatedRequest,
   ): Promise<{ message: string; roles: UserRole[] }> {
@@ -63,8 +65,14 @@ export class RolesController {
     description: "Roles retrieved successfully.",
     type: RolesResponseDto,
   })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: "Missing or invalid JWT." })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Caller cannot view another user's roles." })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: "Missing or invalid JWT.",
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: "Caller cannot view another user's roles.",
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
   async getRole(
     @Param("uuid") uuid: string,

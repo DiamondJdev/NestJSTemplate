@@ -4,6 +4,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module";
+import { JwtAuthGuard } from "./auth/guard/jwt-auth.guard";
 import { CacheModule } from "./cache/cache.module";
 import { CoreModule } from "./core/core.module";
 import { CsrfGuard } from "./core/flow/csrf.guard";
@@ -64,6 +65,13 @@ import { UsersModule } from "./users/users.module";
     {
       provide: APP_GUARD,
       useClass: CsrfGuard,
+    },
+    // Global authentication: every route requires a valid JWT unless marked
+    // @Public(). Runs after Throttler/Csrf and before route guards (RolesGuard,
+    // LocalAuthGuard), so req.user is populated before authorization checks.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

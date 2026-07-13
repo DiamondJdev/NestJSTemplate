@@ -8,7 +8,6 @@ import { UsersService } from "../db/services/users.service";
 import { RefreshTokenService } from "../db/services/refresh-token.service";
 import { JwtService, type JwtPayload } from "../jwt/jwt.service";
 import { CreateUserDto } from "./dto/createUser.dto";
-import { LoginUserDto } from "./dto/loginUser.dto";
 import { User } from "../core/entities/user.entity";
 import { LoggerService } from "../core/logging/services/logger.service";
 import { UserRole } from "../core/utils/userRole.enum";
@@ -27,44 +26,76 @@ export class AuthService {
     private readonly logger: LoggerService,
   ) {}
 
-  async login(loginUserDto: LoginUserDto): Promise<{
-    message: string;
-    accessToken: string;
-    refreshToken: string;
-    user: { id: string; username: string; roles: string[] };
-  }> {
-    const user: User | null = await this.usersService.findOneSensitive(
-      loginUserDto.username,
-    );
+  // Timing-attack-safe credential check used by the passport-local strategy.
+  // Returns the safe user on success, or null on failure (the strategy raises
+  // 401) — the bcrypt comparison always runs, even for unknown usernames.
+  async validateUser(
+    username: string,
+    password: string,
+  ): Promise<{ id: string; username: string; roles: UserRole[] } | null> {
+    const user: User | null =
+      await this.usersService.findOneSensitive(username);
     if (!user) this.logger.debug("Could not find user", "AuthService");
 
     const comparisonHash = user ? user.password : DUMMY_BCRYPT_HASH;
-    const isMatch = await bcrypt.compare(loginUserDto.password, comparisonHash);
+    const isMatch = await bcrypt.compare(password, comparisonHash);
 
     if (!user || !isMatch) {
       this.logger.warn(
-        `Failed login attempt for username: ${loginUserDto.username}`,
+        `Failed login attempt for username: ${username}`,
         "AuthService",
       );
-      throw new UnauthorizedException("Invalid username or password");
+      return null;
     }
 
     if (!user.id)
       throw new InternalServerErrorException("Error processing user data");
 
-    const tokens = await this.jwtService.rotateTokens(user.id, user.roles);
+    return { id: user.id, username: user.username, roles: user.roles };
+  }
+
+  // Rotates + persists a token pair. Shared by login and registration.
+  private async persistTokens(
+    userId: string,
+    roles: UserRole[],
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const {
+      accessToken,
+      refreshToken,
+      refreshTokenHash,
+      refreshTokenExpiresAt,
+    } = await this.jwtService.rotateTokens(userId, roles);
     await this.refreshTokenService.saveRefreshToken(
+      userId,
+      refreshTokenHash,
+      refreshTokenExpiresAt,
+    );
+    return { accessToken, refreshToken };
+  }
+
+  // Issues tokens for an already-authenticated user (req.user from
+  // LocalStrategy) and returns the login response body.
+  async issueTokensForUser(user: {
+    id: string;
+    username: string;
+    roles: UserRole[];
+  }): Promise<{
+    message: string;
+    accessToken: string;
+    refreshToken: string;
+    user: { id: string; username: string; roles: string[] };
+  }> {
+    const { accessToken, refreshToken } = await this.persistTokens(
       user.id,
-      tokens.refreshTokenHash,
-      tokens.refreshTokenExpiresAt,
+      user.roles,
     );
 
     this.logger.logUserStats("login", user.id, { username: user.username });
 
     return {
       message: "User logged in successfully",
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      accessToken,
+      refreshToken,
       user: { id: user.id, username: user.username, roles: user.roles },
     };
   }
@@ -99,16 +130,9 @@ export class AuthService {
     if (!user || !user.id)
       throw new InternalServerErrorException("Error while creating user");
 
-    const {
-      accessToken,
-      refreshToken,
-      refreshTokenHash,
-      refreshTokenExpiresAt,
-    } = await this.jwtService.rotateTokens(user.id, user.roles);
-    await this.refreshTokenService.saveRefreshToken(
+    const { accessToken, refreshToken } = await this.persistTokens(
       user.id,
-      refreshTokenHash,
-      refreshTokenExpiresAt,
+      user.roles,
     );
 
     this.logger.log(`New user registered: ${user.username}`, "AuthService");

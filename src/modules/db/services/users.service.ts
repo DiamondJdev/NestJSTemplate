@@ -5,12 +5,16 @@ import {
   BadRequestException,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
 import { QueryFailedError, Repository } from "typeorm";
 import { User } from "../../core/entities/user.entity";
-import { UpdateUserPassword } from "../../core/dto/updatePassword.dto";
+import {
+  ChangePasswordDto,
+  UpdateUserPassword,
+} from "../../core/dto/updatePassword.dto";
 import { UserCacheDto } from "../../core/dto/userCache.dto";
 import { isValidRoles } from "../../core/utils/roleChecker";
 import { CacheService } from "../../cache/cache.service";
@@ -108,6 +112,26 @@ export class UsersService {
       CacheKeys.userRole(uuid),
       CacheKeys.refreshToken(uuid),
     );
+  }
+
+  /**
+   * Self-service change: verifies the existing password first. Kept separate
+   * from `updatePassword` so the unverified path is only reachable from the
+   * admin route.
+   */
+  async changePassword(uuid: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.userRepository.findOneBy({ id: uuid });
+    if (!user) throw new NotFoundException("Could not find user to update");
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isMatch) {
+      this.logger.warn(
+        `Rejected password change for user ${uuid}: current password mismatch`,
+      );
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+
+    await this.updatePassword(uuid, { password: dto.password });
   }
 
   async updatePassword(

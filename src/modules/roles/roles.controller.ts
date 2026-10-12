@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Request,
   UseGuards,
 } from "@nestjs/common";
@@ -67,7 +68,7 @@ export class RolesController {
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Caller cannot view another user's roles." })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
   async getRole(
-    @Param("uuid") uuid: string,
+    @Param("uuid", ParseUUIDPipe) uuid: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<{ message: string; roles: UserRole[] }> {
     if (req.user.id !== uuid && !req.user.roles.includes(UserRole.ADMIN)) {

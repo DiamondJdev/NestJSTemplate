@@ -54,7 +54,10 @@ export class JwtAuthGuard implements CanActivate {
       };
 
       return true;
-    } catch {
+    } catch (error) {
+      // Keep the specific message from the throws above; collapse anything
+      // else (expired or malformed JWT) so library internals never leak.
+      if (error instanceof UnauthorizedException) throw error;
       throw new UnauthorizedException("Token validation failed");
     }
   }

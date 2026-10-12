@@ -5,7 +5,9 @@ import {
   ConflictException,
   InternalServerErrorException,
   NotFoundException,
+  UnauthorizedException,
 } from "@nestjs/common";
+import * as bcrypt from "bcrypt";
 import { QueryFailedError } from "typeorm";
 import { UsersService } from "./users.service";
 import { User } from "../../core/entities/user.entity";
@@ -203,6 +205,52 @@ describe("UsersService", () => {
       await expect(
         service.updatePassword("uuid-missing", { password: "NewP@ssw0rd123!" }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("changePassword", () => {
+    const CURRENT = "0ldP@ssw0rd123!";
+    const NEXT = "NewP@ssw0rd123!";
+
+    it("updates the password when the current one matches", async () => {
+      const hashed = await bcrypt.hash(CURRENT, 4);
+      repo.findOneBy.mockResolvedValue(buildUser({ password: hashed }));
+      repo.update.mockResolvedValue({ affected: 1 });
+
+      await service.changePassword("uuid-1", {
+        currentPassword: CURRENT,
+        password: NEXT,
+      });
+
+      // Two updates: the new hash, then the refresh-token revocation.
+      expect(repo.update).toHaveBeenCalledTimes(2);
+    });
+
+    it("rejects a wrong current password without writing anything", async () => {
+      const hashed = await bcrypt.hash(CURRENT, 4);
+      repo.findOneBy.mockResolvedValue(buildUser({ password: hashed }));
+
+      await expect(
+        service.changePassword("uuid-1", {
+          currentPassword: "totally-wrong",
+          password: NEXT,
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFoundException when the user does not exist", async () => {
+      repo.findOneBy.mockResolvedValue(null);
+
+      await expect(
+        service.changePassword("uuid-missing", {
+          currentPassword: CURRENT,
+          password: NEXT,
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 

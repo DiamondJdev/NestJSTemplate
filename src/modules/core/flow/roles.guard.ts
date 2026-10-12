@@ -8,7 +8,7 @@ import { Observable } from "rxjs";
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import { hasPermission } from "../utils/roleChecker";
-import { UserRole } from "../utils/userRole.enum"
+import { UserRole } from "../utils/userRole.enum";
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -17,10 +17,12 @@ export class RolesGuard implements CanActivate {
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
-    const requiredRoles = this.reflector.get<string[]>(
-      "roles",
+    // getAllAndOverride, not get: a class-level @Roles applies to handlers
+    // that declare none, and a handler-level @Roles overrides it.
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>("roles", [
       context.getHandler(),
-    );
+      context.getClass(),
+    ]);
     if (!requiredRoles) return true;
 
     const req = context

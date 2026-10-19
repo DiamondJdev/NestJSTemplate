@@ -12,9 +12,14 @@ import {
 } from "@nestjs/swagger";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import { assertEncryptionKeyConfigured } from "./modules/core/utils/token-encryption.transformer";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+
+  // Fail the boot now rather than 500 on the first login. ConfigModule has
+  // only just loaded .env, so this can't run any earlier.
+  assertEncryptionKeyConfigured();
 
   // This somehow works idk
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -72,6 +77,30 @@ async function bootstrap() {
     }),
   );
 
+  const port = process.env.PORT ?? 5200;
+  const ip = "0.0.0.0";
+
+  /**
+   * Swagger is off in production: the document lists every route, DTO and
+   * admin-only endpoint. Set SWAGGER_ENABLED=true to force it on, e.g. for a
+   * staging box that runs with NODE_ENV=production.
+   */
+  const isProduction = configService.get<string>("NODE_ENV") === "production";
+  const swaggerEnabled =
+    configService.get<string>("SWAGGER_ENABLED") === "true" || !isProduction;
+
+  if (swaggerEnabled) {
+    setupSwagger(app);
+    logger.log(`Swagger docs available at http://${ip}:${port}/`, "Bootstrap");
+  } else {
+    logger.log("Swagger docs disabled in production", "Bootstrap");
+  }
+
+  await app.listen(port, ip);
+  logger.log(`Server running on http://${ip}:${port}`, "Bootstrap");
+}
+
+function setupSwagger(app: Awaited<ReturnType<typeof NestFactory.create>>) {
   const config = new DocumentBuilder()
     .setTitle("Backend API")
     .setDescription(
@@ -111,12 +140,6 @@ async function bootstrap() {
       })();
     `,
   });
-
-  const port = process.env.PORT ?? 5200;
-  const ip = "0.0.0.0";
-  await app.listen(port, ip);
-  logger.log(`Server running on http://${ip}:${port}`, "Bootstrap");
-  logger.log(`Swagger docs available at http://${ip}:${port}/api`, "Bootstrap");
 }
 
 bootstrap().catch((err: unknown) => {

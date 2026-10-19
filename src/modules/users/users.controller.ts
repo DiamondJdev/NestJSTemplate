@@ -13,6 +13,7 @@ import {
   Query,
   ParseIntPipe,
   DefaultValuePipe,
+  ParseUUIDPipe,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -24,7 +25,10 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { UsersService } from "../db/services/users.service";
-import { UpdateUserPassword } from "../core/dto/updatePassword.dto";
+import {
+  ChangePasswordDto,
+  UpdateUserPassword,
+} from "../core/dto/updatePassword.dto";
 import {
   CurrentUserResponseDto,
   UserListResponseDto,
@@ -151,7 +155,7 @@ export class UsersController {
     description: "Caller is not an admin.",
   })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
-  async deleteUser(@Param("uuid") uuid: string) {
+  async deleteUser(@Param("uuid", ParseUUIDPipe) uuid: string) {
     await this.usersService.remove(uuid);
   }
 
@@ -159,11 +163,11 @@ export class UsersController {
   @Roles(UserRole.ADMIN, UserRole.USER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Update a user's password",
+    summary: "Change the caller's own password",
     description:
-      "This route is exclusively for updating the caller's own password.",
+      "Requires `currentPassword`. A valid access token alone isn't enough, because the change also revokes every refresh token.",
   })
-  @ApiBody({ type: UpdateUserPassword })
+  @ApiBody({ type: ChangePasswordDto })
   @ApiResponse({
     status: HttpStatus.OK,
     description: "Password updated.",
@@ -175,18 +179,14 @@ export class UsersController {
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
-    description: "Missing or invalid JWT.",
-  })
-  @ApiResponse({
-    status: HttpStatus.FORBIDDEN,
-    description: "Cannot update another user without admin role.",
+    description: "Missing or invalid JWT, or `currentPassword` is incorrect.",
   })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
   async updatePassword(
-    @Body() updateUserPassword: UpdateUserPassword,
+    @Body() changePassword: ChangePasswordDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    await this.usersService.updatePassword(req.user.id, updateUserPassword);
+    await this.usersService.changePassword(req.user.id, changePassword);
     return { message: "User updated successfully" };
   }
 
@@ -219,7 +219,7 @@ export class UsersController {
   })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: "User not found." })
   async adminUpdatePassword(
-    @Param("uuid") uuid: string,
+    @Param("uuid", ParseUUIDPipe) uuid: string,
     @Body() updateUserPassword: UpdateUserPassword,
   ) {
     try {

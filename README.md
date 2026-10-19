@@ -368,7 +368,8 @@ docker build --target prod -t template-backend:prod .
 ```
 
 It compiles to `dist/`, installs production-only dependencies, and runs
-`node dist/src/main`. Supply `DATABASE_URL`, `ALLOWED_ORIGINS`, and other env vars at
+`node dist/src/main` as the unprivileged `node` user, with a `HEALTHCHECK` that
+polls `/health`. Supply `DATABASE_URL`, `ALLOWED_ORIGINS`, and other env vars at
 runtime via your orchestrator.
 
 ---
@@ -383,6 +384,8 @@ Create a `.env` file in the project root. The application reads all config via `
 | `JWT_SECRET` | **Yes** | — | Secret key for signing access tokens |
 | `JWT_EXPIRATION` | No | `15m` | Access token TTL (e.g., `15m`, `1h`) |
 | `JWT_REFRESH_EXP` | No | `7d` | Refresh token TTL (e.g., `7d`, `30d`) |
+| `TOKEN_ENCRYPTION_KEY` | **Yes** | — | 64 hex chars (`openssl rand -hex 32`). The app won't start if it's missing or the wrong length |
+| `SWAGGER_ENABLED` | No | off in production | Set to `true` to serve Swagger UI when `NODE_ENV=production` |
 | `NODE_ENV` | No | `development` | Set to `production` to suppress console logs |
 
 **`.env.example`:**
@@ -424,6 +427,10 @@ For production or when running `npm start`, the base URL is `http://localhost:52
 | `GET` | `/users/me` | Bearer | Any | Get current user's details |
 | `PATCH` | `/users/:uuid` | Bearer | Any* | Update user by UUID |
 | `DELETE` | `/users/:uuid` | Bearer | `admin` | Delete user by UUID |
+| `PATCH` | `/users/password` | Bearer | Any | Change your own password. Body: `{ currentPassword, password }` |
+| `PATCH` | `/users/password/:uuid` | Bearer | `admin` | Reset another user's password. Body: `{ password }` |
+
+> A malformed `:uuid` returns 400 before reaching the database.
 
 > *Users can only update their own profile; admins can update any profile.
 

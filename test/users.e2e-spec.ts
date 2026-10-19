@@ -140,6 +140,15 @@ describe("Users (e2e)", () => {
       expect(response.status).toBe(403);
     });
 
+    it("returns 400 for a malformed uuid", async () => {
+      const response = await request(ctx.app.getHttpServer())
+        .delete("/users/not-a-uuid")
+        .set(authHeader(adminToken))
+        .set(CSRF_HEADER);
+
+      expect(response.status).toBe(400);
+    });
+
     it("returns 404 for an unknown uuid", async () => {
       const response = await request(ctx.app.getHttpServer())
         .delete(`/users/${randomUUID()}`)
@@ -161,7 +170,7 @@ describe("Users (e2e)", () => {
         .patch("/users/password")
         .set(authHeader(token))
         .set(CSRF_HEADER)
-        .send({ password: newPassword });
+        .send({ currentPassword: user.password, password: newPassword });
 
       expect(response.status).toBe(200);
 
@@ -181,7 +190,43 @@ describe("Users (e2e)", () => {
         .patch("/users/password")
         .set(authHeader(token))
         .set(CSRF_HEADER)
-        .send({ password: "weak" });
+        .send({ currentPassword: user.password, password: "weak" });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("rejects a wrong current password with 401 and leaves the password intact", async () => {
+      const user = await createTestUser(ctx);
+      createdUserIds.push(user.id);
+      const token = (await mintTokensFor(ctx, user)).accessToken;
+
+      const response = await request(ctx.app.getHttpServer())
+        .patch("/users/password")
+        .set(authHeader(token))
+        .set(CSRF_HEADER)
+        .send({
+          currentPassword: "Wr0ng!PasswordHere",
+          password: "N3w!StrongPassword",
+        });
+
+      expect(response.status).toBe(401);
+
+      const stored = await ctx.usersService.findOneSensitive(user.username);
+      await expect(
+        bcrypt.compare(user.password, stored!.password),
+      ).resolves.toBe(true);
+    });
+
+    it("rejects a missing current password with 400", async () => {
+      const user = await createTestUser(ctx);
+      createdUserIds.push(user.id);
+      const token = (await mintTokensFor(ctx, user)).accessToken;
+
+      const response = await request(ctx.app.getHttpServer())
+        .patch("/users/password")
+        .set(authHeader(token))
+        .set(CSRF_HEADER)
+        .send({ password: "N3w!StrongPassword" });
 
       expect(response.status).toBe(400);
     });

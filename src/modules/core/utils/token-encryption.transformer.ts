@@ -14,6 +14,14 @@ function getKey(): Buffer {
   return key;
 }
 
+/**
+ * Called at boot so a missing or malformed key stops startup instead of
+ * causing a 500 on the first request that touches an encrypted column.
+ */
+export function assertEncryptionKeyConfigured(): void {
+  getKey();
+}
+
 function encrypt(plaintext: string): string {
   const iv = crypto.randomBytes(IV_BYTES);
   const cipher = crypto.createCipheriv(ALGO, getKey(), iv);

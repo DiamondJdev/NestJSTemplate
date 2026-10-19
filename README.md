@@ -1,763 +1,378 @@
 <div align="center">
 
-# 🚀 NestJS Template
+# NestJS Template
 
-**A production-ready, opinionated NestJS backend template with JWT authentication, role-based access control, structured logging, and SQLite persistence — ready to clone and extend.**
+A NestJS backend starter for APIs that need user accounts and role-based access.
 
 [![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Node.js](https://img.shields.io/badge/Node.js-22.x-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![SQLite](https://img.shields.io/badge/SQLite-3.x-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![Jest](https://img.shields.io/badge/Jest-30.x-C21325?style=for-the-badge&logo=jest&logoColor=white)](https://jestjs.io)
+[![Node.js](https://img.shields.io/badge/Node.js-26.x-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Redis](https://img.shields.io/badge/Redis-Upstash-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://upstash.com/redis)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-[![ESLint](https://img.shields.io/badge/ESLint-9.x-4B32C3?style=flat-square&logo=eslint&logoColor=white)](https://eslint.org)
-[![bcrypt](https://img.shields.io/badge/bcrypt-6.x-blueviolet?style=flat-square)](https://www.npmjs.com/package/bcrypt)
-[![TypeORM](https://img.shields.io/badge/TypeORM-0.3.x-FE0902?style=flat-square)](https://typeorm.io)
-[![Socket.io](https://img.shields.io/badge/Socket.io-4.x-010101?style=flat-square&logo=socketdotio)](https://socket.io)
+[Architecture](#architecture) · [Getting started](#getting-started) · [API](#api) · [Configuration](#configuration) · [Development](#development)
 
 </div>
 
----
+## Overview
 
-## 📋 Table of Contents
+Start with registration, login, password changes, and account deletion already wired through controllers, guards, and database services. Add your application modules alongside them.
 
-- [✨ Features](#-features)
-- [🏗️ Tech Stack](#️-tech-stack)
-- [🎯 Opinionated Decisions](#-opinionated-decisions)
-- [📐 Architecture](#-architecture)
-- [⚡ Quickstart](#-quickstart)
-- [🐳 Docker](#-running-with-docker)
-- [🔐 Environment Variables](#-environment-variables)
-- [📡 API Reference](#-api-reference)
-- [🔑 Authentication Flow](#-authentication-flow)
-- [🛡️ Role-Based Access Control](#️-role-based-access-control)
-- [📝 Logging](#-logging)
-- [🧪 Testing](#-testing)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
+| Capability | Implementation |
+| --- | --- |
+| Authentication | Access and refresh JWTs, bearer headers, HttpOnly cookies, refresh token rotation |
+| Authorization | `user` and `admin` roles, inherited permissions, route guards, ownership checks |
+| Persistence | PostgreSQL with TypeORM repositories and UUID user IDs |
+| Caching | Upstash Redis over REST for user records, roles, and refresh token hashes |
+| HTTP | DTO validation, CORS allowlist, Helmet headers, throttling, CSRF header checks |
 
----
+## Architecture
 
-## ✨ Features
+HTTP controllers delegate to services; database services handle persistence and caching. [Module responsibilities](#modules) and the [authentication lifecycle](#how-authentication-works) explain where to make changes.
 
-| Feature | Description |
-|---|---|
-| 🔐 **JWT Auth** | Access + refresh token rotation with bcrypt-hashed token storage |
-| 🛡️ **RBAC** | Decorator-driven role-based access control (`admin`, `user`) |
-| 🗄️ **TypeORM + SQLite** | Zero-config local persistence via SQLite; swap to Postgres/MySQL easily |
-| ✅ **Validation** | `class-validator` with strict password policy enforcement |
-| 📝 **Structured Logging** | File-based multi-channel logs (combined, error, stats) + HTTP interceptor |
-| ❤️ **Health Checks** | `/health` endpoint with live database connectivity probe |
-| 🔌 **WebSocket Ready** | `socket.io` and `@nestjs/websockets` pre-installed and configured |
-| 🧪 **Testing** | Jest unit tests with mocked repositories; coverage reports included |
-| 🔒 **Timing-Attack Prevention** | Constant-time hash comparison even for non-existent users |
-
----
-
-## 🏗️ Tech Stack
-
-<div align="center">
-
-| Layer | Technology |
-|---|---|
-| **Framework** | [NestJS 11](https://nestjs.com) |
-| **Language** | [TypeScript 5.7](https://www.typescriptlang.org) |
-| **ORM** | [TypeORM 0.3](https://typeorm.io) |
-| **Database** | [SQLite](https://sqlite.org) (swappable) |
-| **Auth** | [@nestjs/jwt](https://github.com/nestjs/jwt) + [bcrypt](https://www.npmjs.com/package/bcrypt) |
-| **Validation** | [class-validator](https://github.com/typestack/class-validator) + [class-transformer](https://github.com/typestack/class-transformer) |
-| **WebSockets** | [Socket.io 4](https://socket.io) |
-| **Testing** | [Jest 30](https://jestjs.io) + [Supertest](https://github.com/ladjs/supertest) |
-| **Linting** | [ESLint 9](https://eslint.org) (flat config) + [typescript-eslint](https://typescript-eslint.io) |
-
-</div>
-
----
-
-## 🎯 Opinionated Decisions
-
-This template reflects specific architectural choices made to promote security, maintainability, and developer experience. Understanding these decisions will help you extend the template confidently.
-
-### 🔐 Refresh Token Hashing
-
-Refresh tokens are **never stored in plaintext**. After generation, the raw token is hashed with bcrypt (cost factor 10) before persisting to the database. Only the hash is stored in `user.refreshTokenHash`.
-
-> **Why?** If your database is ever compromised, attackers cannot reuse refresh tokens. The raw token lives only in the HTTP response.
-
-```
-User logs in → raw tokens generated → refreshToken returned to client
-                                     → refreshTokenHash saved to DB
+```mermaid
+flowchart LR
+    client["Client"] --> http["Throttling + CSRF"]
+    subgraph app["NestJS application"]
+        http --> routes["Auth · Users · Roles<br/>Controllers + services"]
+        routes --> jwt["JWT signing<br/>and verification"]
+        routes --> business["Business logic"]
+        business --> db["TypeORM services"]
+        db --> cache["CacheService"]
+    end
+    db --> pg[("PostgreSQL")]
+    cache --> redis[("Upstash Redis")]
+    classDef application fill:#fff1f2,stroke:#be123c,color:#881337
+    classDef storage fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+    classDef boundary fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    class routes,business,jwt,db,cache application
+    class pg,redis storage
+    class client,http boundary
 ```
 
-### ⏱️ Timing Attack Prevention in Login
+## Getting started
 
-When a user provides an unknown username, the service still performs a `bcrypt.compare()` call against a dummy hash. This ensures login attempts for real and fake users take the same amount of time.
+| Path | API runtime | Database | Requirements |
+| --- | --- | --- | --- |
+| [Docker Compose](#option-1-docker-compose) | Container with source watching | Bundled PostgreSQL 16 | Git, Docker with Compose v2, OpenSSL |
+| [Local Node.js](#option-2-local-nodejs) | Local process with source watching | PostgreSQL from Compose | The tools above, plus Node.js 22 and npm |
 
-```typescript
-// auth.service.ts
-const comparisonHash = user ? user.password : '$2b$12$invalidhashinvalidhas$2b$12$invalidhashinvalidhas';
-const isMatch = await bcrypt.compare(loginUserDto.password, comparisonHash);
-```
+Both paths require an Upstash Redis REST URL and token. Compose provisions the API and PostgreSQL; configure Redis separately.
 
-> **Why?** Without this, an attacker could measure response time to enumerate valid usernames.
+### Configure the environment
 
-### 🔄 Token Rotation on Every Refresh
+1. Clone the repository and create your local environment file:
 
-Every call to `PATCH /auth/refresh` issues a **brand new access + refresh token pair** and invalidates the previous refresh token hash in the database. Single-use refresh tokens prevent token replay attacks.
+   ```bash
+   git clone https://github.com/DiamondJdev/NestJSTemplate.git my-app
+   cd my-app
+   cp .env.example .env
+   ```
 
-### 🧹 Whitelist Validation (DTO Stripping)
+2. Generate a signing secret and a separate encryption key:
 
-`ValidationPipe` is configured globally with `whitelist: true`. Any property sent in a request body that is **not declared in a DTO** is silently stripped before it reaches your controller.
+   ```bash
+   openssl rand -base64 64
+   openssl rand -hex 32
+   ```
 
-```typescript
-// main.ts
-app.useGlobalPipes(new ValidationPipe({
-  whitelist: true,       // Strip unknown properties
-  transform: true,       // Auto-transform primitive types
-  stopAtFirstError: true // Return first error only
-}));
-```
+3. Set these four values in `.env`:
 
-### 🔑 Strong Password Policy
+   | Variable | Value |
+   | --- | --- |
+   | `JWT_SECRET` | Output of the first command |
+   | `TOKEN_ENCRYPTION_KEY` | Output of the second command, exactly 64 hex characters |
+   | `UPSTASH_REDIS_REST_URL` | REST URL from your Upstash Redis database |
+   | `UPSTASH_REDIS_REST_TOKEN` | REST token from the same database |
 
-Registration enforces a strict password policy via `class-validator`'s `@IsStrongPassword`:
+   Keep the remaining example settings for development. Keep `.env` private and back up the encryption key; stored refresh token hashes cannot be decrypted without it.
 
-- Minimum **12 characters**
-- At least **1 uppercase** letter
-- At least **1 lowercase** letter
-- At least **1 number**
-- At least **1 symbol**
-- Maximum **128 characters** (prevents bcrypt DoS)
-
-### 🆔 UUID Primary Keys
-
-All user records use auto-generated **UUID v4** primary keys instead of sequential integers. This prevents ID enumeration attacks and simplifies horizontal scaling.
-
-### 📁 File-Based Logging (No External Dependency)
-
-Logging writes to three files in the `logs/` directory with zero external dependencies (no Elasticsearch, no Datadog). This keeps the template self-contained while providing enough structure to pipe into any logging platform.
-
-### 🌐 CORS (Development Default)
-
-CORS is currently open to all origins (`origin: true`). This is intentional for a development template. Before deploying to production, restrict this to your trusted origins:
-
-```typescript
-// main.ts — update before production
-app.enableCors({
-  origin: ['https://your-frontend.com'],
-  credentials: true,
-});
-```
-
----
-
-## 📐 Architecture
-
-### Module Structure
-
-```
-src/
-├── main.ts                          # Bootstrap: logger, pipes, CORS, port
-└── modules/
-    ├── app.module.ts                # Root module (imports all feature modules)
-    ├── auth/                        # Authentication (login, register, refresh)
-    │   ├── auth.controller.ts
-    │   ├── auth.service.ts
-    │   ├── auth.module.ts
-    │   ├── guard/
-    │   │   ├── jwt-auth.guard.ts    # Validates Bearer tokens on protected routes
-    │   │   └── body-required.guard.ts
-    │   └── dto/
-    │       ├── CreateUser.dto.ts    # Strict password validation rules
-    │       ├── loginUser.dto.ts
-    │       └── refreshUserTokens.dto.ts
-    ├── users/                       # User management (CRUD, role-protected)
-    │   ├── users.controller.ts
-    │   └── users.module.ts
-    ├── roles/                       # Role management module
-    │   ├── roles.controller.ts
-    │   ├── roles.service.ts
-    │   └── roles.module.ts
-    ├── db/                          # Database abstraction (TypeORM operations)
-    │   ├── db.service.ts
-    │   ├── db.module.ts
-    │   ├── db.service.spec.ts
-    │   └── utils/
-    │       └── userConversion.ts
-    ├── jwt/                         # JWT token generation & validation
-    │   ├── jwt.service.ts
-    │   └── jwt.module.ts
-    └── common/                      # Shared utilities, guards, entities, logging
-        ├── entities/
-        │   └── user.entity.ts       # TypeORM User entity (UUID, unique username)
-        ├── flow/
-        │   ├── roles.guard.ts       # RBAC guard (checks @Roles() decorator)
-        │   └── roles.decorator.ts   # @Roles('admin') decorator
-        ├── health/
-        │   └── controller/
-        │       └── health.controller.ts
-        ├── logging/
-        │   ├── services/
-        │   │   └── logger.service.ts
-        │   └── interceptors/
-        │       └── logging.interceptor.ts
-        └── utils/
-            ├── roleChecker.ts
-            └── userRole.enum.ts
-```
-
-### Data Model
-
-```
-┌─────────────────────────────────────────┐
-│                  User                    │
-├──────────────┬──────────────────────────┤
-│ id           │ UUID (PK, auto-generated) │
-│ username     │ VARCHAR(64) UNIQUE        │
-│ password     │ VARCHAR (bcrypt hash)     │
-│ role         │ VARCHAR (default: 'user') │
-│ refreshTokenHash │ VARCHAR (bcrypt hash, nullable) │
-│ createdAt        │ TIMESTAMP (auto-set)            │
-└──────────────┴──────────────────────────┘
-```
-
-### Request Lifecycle
-
-```
-HTTP Request
-     │
-     ▼
-LoggingInterceptor     ← logs method, url, duration, userId
-     │
-     ▼
-JwtAuthGuard           ← validates Bearer token (protected routes)
-     │
-     ▼
-RolesGuard             ← checks @Roles() decorator (admin routes)
-     │
-     ▼
-ValidationPipe         ← strips unknown props, validates DTO
-     │
-     ▼
-Controller → Service → DbService → SQLite
-     │
-     ▼
-HTTP Response (+ logged by interceptor)
-```
-
----
-
-## ⚡ Quickstart
-
-### Prerequisites
-
-- **Node.js** ≥ 18 ([download](https://nodejs.org))
-- **npm** ≥ 9
-
-### 1. Clone & Install
+### Option 1: Docker Compose
 
 ```bash
-git clone https://github.com/DiamondJdev/NestJSTemplate.git my-app
-cd my-app
-npm install
+docker compose up --build
 ```
 
-### 2. Configure Environment
+Compose pins the API to port `5200`, connects it to the bundled database, and enables development schema synchronization. Editing `src/` triggers a rebuild.
+
+### Option 2: Local Node.js
+
+Install dependencies and start the database:
 
 ```bash
-cp .env.example .env
+npm ci
+docker compose up -d postgres
 ```
 
-Edit `.env` with your secrets (see [Environment Variables](#-environment-variables) below).
+Set the host database connection in `.env`:
 
-> **Note:** A `.env.example` file is provided as a template. The app will start on port `5200` by default if `PORT` is not set.
+```dotenv
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/template_dev"
+DB_SSL="false"
+DB_SYNC="true"
+```
 
-### 3. Start the Development Server
+Start the API:
 
 ```bash
-npm run start:dev
+npm run dev
 ```
 
-The dev server starts at **`http://localhost:8080`** (the `--port 8080` flag in `start:dev` overrides the default). In production (`npm start` / `npm run start:prod`), the server listens on the port defined by `PORT` in your `.env` file, which defaults to **`5200`**.
+If the Compose API is already running, free port `5200` with `docker compose stop api` before starting the local process. `npm run start:dev` is an alias for `npm run dev`; both use `PORT` from `.env`.
 
-### 4. Verify It's Working
+### Verify the server
 
 ```bash
-curl http://localhost:8080/
-# → {"message":"OK","version":"1.0.0","database":{"status":"connected","latency":12},"backend":{"status":"running","uptime":123456},"timestamp":"2025-01-01T00:00:00.000Z","mode":"development"}
+curl http://localhost:5200/health
 ```
 
-### 5. Register Your First User
+| Address | Purpose |
+| --- | --- |
+| [localhost:5200](http://localhost:5200/) | Swagger UI with request schemas and interactive API calls |
+| [localhost:5200/health](http://localhost:5200/health) | API status and PostgreSQL connectivity |
+
+A successful health response has `database.status` and `backend.status` set to `healthy`. A failed database check returns `503`. The cache status is currently hardcoded to healthy, so this response does not verify Redis.
+
+Compose creates `template_dev` and `template_test` when PostgreSQL first starts with an empty volume. Stop the stack with `docker compose down`; database data remains in `postgres_data`.
+
+## First request
+
+Register a development account:
 
 ```bash
-curl -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "adminuser",
-    "password": "MyStr0ng!Password"
-  }'
+curl -X POST http://localhost:5200/auth/register \
+  -H 'Content-Type: application/json' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -d '{"username":"demo","password":"ExamplePass123!"}'
 ```
 
-**Example Response:**
+The response includes the new user's identity and tokens:
 
 ```json
 {
   "message": "User registered successfully",
-  "userID": "550e8400-e29b-41d4-a716-446655440000",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "accessToken": "<access-token>",
+  "refreshToken": "<refresh-token>",
+  "user": {
+    "id": "<user-uuid>",
+    "username": "demo",
+    "roles": ["user"]
+  },
+  "token_type": "bearer"
 }
 ```
 
-### 6. Access a Protected Route
+Use the returned access token to read your identity:
 
 ```bash
-curl http://localhost:8080/auth/me \
-  -H "Authorization: Bearer <your-access-token>"
+curl http://localhost:5200/auth/me \
+  -H 'Authorization: Bearer <access-token>'
 ```
 
----
+Registration and login also set HttpOnly cookies. For browser clients, enable credentials on requests and include `X-Requested-With: XMLHttpRequest` on every mutating request. Swagger adds that header automatically.
 
-## 🐳 Running with Docker
+## Modules
 
-Prerequisites: Docker Desktop (or Docker Engine + Compose v2).
+| Module | Responsibility | Starting point |
+| --- | --- | --- |
+| `auth` | Registration, login, refresh, logout, token cookies, authentication guard | [AuthService](src/modules/auth/auth.service.ts) |
+| `users` | Account queries, self-service deletion, password changes, admin operations | [UsersController](src/modules/users/users.controller.ts) |
+| `roles` | Role lookup for the caller or an authorized target user | [RolesService](src/modules/roles/roles.service.ts) |
+| `db` | User repositories, refresh token persistence, database health checks | [Database services](src/modules/db/services/) |
+| `jwt` | JWT signing and verification, refresh token hashing | [JwtService](src/modules/jwt/jwt.service.ts) |
 
-1. Copy the env template and fill in secrets:
+| Shared module | Responsibility | Starting point |
+| --- | --- | --- |
+| `cache` | Redis reads, writes, invalidation, and cache lifetimes | [CacheService](src/modules/cache/cache.service.ts) |
+| `core` | User entity, DTOs, role and CSRF guards, health endpoint, logging | [CoreModule](src/modules/core/core.module.ts) |
+| `app` | Environment loading, PostgreSQL configuration, module wiring, global guards | [AppModule](src/modules/app.module.ts) |
 
-   ```bash
-   cp .env.example .env
-   ```
+[main.ts](src/main.ts) configures middleware, CORS, validation, Swagger, logging, and the HTTP listener.
 
-   The stack reads `ALLOWED_ORIGINS`, `JWT_SECRET`, `TOKEN_ENCRYPTION_KEY`, and the
-   `UPSTASH_*` keys from `.env`; without them the API crashes on boot. Compose
-   overrides `DATABASE_URL`/`PORT` so the container always uses the bundled
-   Postgres on port 5200.
+## API
 
-2. Start the dev stack (API + Postgres):
+Base URL: `http://localhost:5200`. Swagger UI is served at `/` during development. It is disabled in production unless `SWAGGER_ENABLED=true`.
 
-   ```bash
-   docker compose up --build
-   ```
+All `POST`, `PUT`, `PATCH`, and `DELETE` requests require `X-Requested-With: XMLHttpRequest`, including registration and login. Protected endpoints accept `Authorization: Bearer <access-token>` or the `accessToken` cookie. Browser clients using cookies must send requests with credentials enabled.
 
-   - API: http://localhost:5200
-   - Swagger UI: http://localhost:5200/
-   - Health check: http://localhost:5200/health
-   - Postgres: localhost:5432 (`template_dev`; a sibling `template_test` DB is
-     created automatically on first boot for the e2e suite)
+### Authentication
 
-   Editing files under `src/` hot-reloads the running container. Note: the file
-   watcher detects the change and triggers a rebuild, but the restarted process
-   can fail to bind port 5200 if the previous process hasn't released it yet (no
-   graceful shutdown handling in this template) — the old process then keeps
-   serving stale code. If your changes don't seem to take effect, run
-   `docker compose restart api`.
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/auth/register` | Public | Create an account; body: `{ username, password }` |
+| `POST` | `/auth/login` | Public | Authenticate; body: `{ username, password }` |
+| `PATCH` | `/auth/refresh` | Refresh token | Replace tokens; cookie or body: `{ refreshToken }` |
+| `DELETE` | `/auth/logout` | Authenticated | Clear refresh token and cookies |
+| `GET` | `/auth/me` | Authenticated | Read caller identity |
 
-3. Stop the stack (Postgres data persists in the `postgres_data` volume):
+Refresh does not require a valid access token. Supplying a refresh token in both the cookie and body returns `400`.
 
-   ```bash
-   docker compose down
-   ```
+### Accounts
 
-### Production image
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/users` | Admin | List users; query: `limit` (default `50`), `page` (default `0`) |
+| `GET` | `/users/me` | User or admin | Read caller profile |
+| `DELETE` | `/users/me` | Authenticated | Delete caller account |
+| `DELETE` | `/users/:uuid` | Admin | Delete a user |
 
-Build the lean production image from the multi-stage Dockerfile's `prod` target:
+### Passwords and roles
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `PATCH` | `/users/password` | User or admin | Change own password; body: `{ currentPassword, password }` |
+| `PATCH` | `/users/password/:uuid` | Admin | Reset a password; body: `{ password }` |
+| `GET` | `/roles/me` | User or admin | Read caller roles |
+| `GET` | `/roles/:uuid` | Owner or admin | Read a user's roles |
+| `GET` | `/health` | Public | Check API and database status |
+
+Usernames must contain 3–64 alphanumeric characters. Registration passwords must contain 12–128 characters, including an uppercase letter, lowercase letter, number, and symbol. DTO validation strips unknown properties. Malformed UUID route parameters return `400`.
+
+The `admin` role inherits `user` permissions. There is no public role assignment endpoint; provision admin roles through a controlled database operation or your own administrative workflow.
+
+### How authentication works
+
+<details>
+<summary>Token issuance, refresh, and session limits</summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant A as Auth API
+    participant J as JWT service
+    participant D as Database services
+    participant P as PostgreSQL
+    C->>A: POST /auth/login + CSRF header
+    A->>D: Find user by username
+    D->>P: Read user and password hash
+    P-->>D: User record
+    D-->>A: User and password hash
+    Note over A: Compare password with bcrypt
+    A->>J: Generate access and refresh JWTs
+    J-->>A: Tokens, refresh hash, expiry
+    A->>D: Save refresh hash and expiry
+    D->>P: Encrypt hash and update user
+    Note over D: Update Redis cache
+    A-->>C: Token JSON + HttpOnly cookies
+    C->>A: PATCH /auth/refresh + CSRF header
+    Note over C,A: Send refresh token in cookie OR body
+    A->>J: Verify JWT signature and expiry
+    A->>D: Read user and stored refresh hash
+    D-->>A: User, hash, and expiry
+    A->>J: Compare refresh token with stored hash
+    Note over A,P: Generate and persist replacement tokens
+    A-->>C: Replacement token JSON + cookies
+```
+
+Passwords use bcrypt with cost `12`. Refresh tokens are SHA-256 digested before bcrypt hashing with cost `10`; the database column stores that hash encrypted with AES-256-GCM. Redis caches the refresh hash without that column encryption.
+
+Each user has one stored refresh token hash. Login and refresh overwrite it, so separate concurrent device sessions are not modeled. Logout clears the stored refresh token and browser cookies. An already issued access token can remain usable until it expires.
+
+</details>
+
+## Configuration
+
+Copy [.env.example](.env.example) for the complete development configuration. The application loads `.env` through `@nestjs/config`.
+
+### Connections and server
+
+| Variable | Behavior |
+| --- | --- |
+| `PORT` | HTTP listener; falls back to `5200` when unset. Compose pins it to `5200`. |
+| `ALLOWED_ORIGINS` | Required comma-separated CORS allowlist; include the origins used by your frontend. |
+| `DATABASE_URL` | PostgreSQL connection string. Compose overrides it for the bundled database. |
+| `DB_SSL` | Enables database SSL only when set to `true`. |
+| `DB_SYNC` | Enables automatic schema synchronization only when set to `true`. Use it only on disposable development databases. |
+
+### Authentication
+
+| Variable | Behavior |
+| --- | --- |
+| `JWT_SECRET` | Required signing secret. Replace the example value. |
+| `JWT_ACCESS_EXP` | Required access token lifetime; the example uses `15m`. |
+| `JWT_REFRESH_EXP` | Required refresh token lifetime; the example uses `7d`. |
+| `TOKEN_ENCRYPTION_KEY` | Required 32-byte key encoded as 64 hex characters; checked at startup. |
+
+### Cache and runtime
+
+| Variable | Behavior |
+| --- | --- |
+| `UPSTASH_REDIS_REST_URL` | Upstash REST endpoint; configure it before starting the API. |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST token; configure it before starting the API. |
+| `NODE_ENV` | Controls production cookies, console logging, Swagger defaults, and database logging. |
+| `SWAGGER_ENABLED` | Set to `true` to expose Swagger in production. Swagger is always enabled outside production. |
+
+Cache operations catch Redis failures: reads become cache misses and failed writes or invalidations are ignored. The health endpoint currently does not report those failures.
+
+## Development
+
+### Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the API with source watching |
+| `npm run build` | Compile TypeScript into `dist/` |
+| `npm run start:prod` | Run the compiled API in production mode |
+| `npm run lint` | Run ESLint with automatic fixes; may modify source files |
+
+### Tests
+
+| Command | Purpose |
+| --- | --- |
+| `npm test -- --runInBand` | Run unit tests without external services |
+| `npm run test:watch` | Run unit tests in watch mode |
+| `npm run test:cov` | Generate unit test coverage |
+| `npm run test:e2e` | Run the integration suite against PostgreSQL |
+
+Unit tests live beside their source as `*.spec.ts`. End-to-end tests live in `test/`, use the real application modules and PostgreSQL, and replace Redis with an in-memory fake.
+
+For end-to-end tests, start the Compose database and configure `.env.test` with a dedicated test database, token settings, and encryption key. The test command loads that file with Node's `--env-file` option. Use `template_test` with the bundled database; do not point the suite at a database containing data you need.
+
+### Logging
+
+The custom logger writes under `logs/` and also prints to the console outside production.
+
+| File | Contents |
+| --- | --- |
+| `combined.log` | All log levels and user activity events |
+| `error.log` | Error entries |
+| `stats.log` | User activity events |
+
+The HTTP interceptor records method, URL, status, duration, and caller ID when available. See [LOGGING.md](LOGGING.md) for additional usage examples.
+
+## Troubleshooting
+
+| Symptom | Check or fix |
+| --- | --- |
+| Startup reports a missing or invalid encryption key | Set `TOKEN_ENCRYPTION_KEY` in `.env` to the 64 hex characters from `openssl rand -hex 32`. |
+| Registration or login returns a CSRF `403` | Include `X-Requested-With: XMLHttpRequest`. Bearer authentication does not exempt a mutating request from this check. |
+| Local startup reports port `5200` in use | If the Compose API is running, stop it with `docker compose stop api`. |
+| A source edit is not reflected in the Compose API | Run `docker compose restart api`; the watch process can hit a port conflict during restart. |
+| `/health` passes but cached reads fail | Check the Upstash REST URL and token separately. The health endpoint does not probe Redis. |
+
+## Deployment
+
+Build the production image:
 
 ```bash
 docker build --target prod -t template-backend:prod .
 ```
 
-It compiles to `dist/`, installs production-only dependencies, and runs
-`node dist/src/main` as the unprivileged `node` user, with a `HEALTHCHECK` that
-polls `/health`. Supply `DATABASE_URL`, `ALLOWED_ORIGINS`, and other env vars at
-runtime via your orchestrator.
+The image runs `node dist/src/main` as the unprivileged `node` user and polls `/health`. Supply environment variables and provision PostgreSQL and Upstash Redis at runtime.
 
----
+Before deploying:
 
-## 🔐 Environment Variables
+1. Set `NODE_ENV=production`, restrict `ALLOWED_ORIGINS`, and terminate HTTPS so secure cookies can be sent.
+2. Keep `DB_SYNC=false` and manage schema changes through a migration workflow. This repository does not include migration scripts.
+3. Provide a writable `logs/` directory for the container user, with persistence and rotation appropriate to your host.
+4. Review proxy trust settings in `src/main.ts` and throttling for your hosting topology. The default rate-limit storage is local to each process.
+5. Verify Redis separately from `/health`, and keep Swagger disabled unless you intend to expose it.
 
-Create a `.env` file in the project root. The application reads all config via `@nestjs/config`.
+## Contributing
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `PORT` | No | `5200` | HTTP server port |
-| `JWT_SECRET` | **Yes** | — | Secret key for signing access tokens |
-| `JWT_EXPIRATION` | No | `15m` | Access token TTL (e.g., `15m`, `1h`) |
-| `JWT_REFRESH_EXP` | No | `7d` | Refresh token TTL (e.g., `7d`, `30d`) |
-| `TOKEN_ENCRYPTION_KEY` | **Yes** | — | 64 hex chars (`openssl rand -hex 32`). The app won't start if it's missing or the wrong length |
-| `SWAGGER_ENABLED` | No | off in production | Set to `true` to serve Swagger UI when `NODE_ENV=production` |
-| `NODE_ENV` | No | `development` | Set to `production` to suppress console logs |
+Open an issue for a bug or proposed change. For pull requests, keep the scope focused, include tests for behavior changes, and run the unit tests, lint, and build commands before submitting. Include end-to-end results when changing routes or persistence.
 
-**`.env.example`:**
+## License
 
-```env
-PORT=5200
-
-# Generate a strong secret: openssl rand -hex 64
-JWT_SECRET=your-super-secret-key-change-me-in-production
-JWT_EXPIRATION=15m
-JWT_REFRESH_EXP=7d
-
-NODE_ENV=development
-```
-
-> ⚠️ **Never commit your `.env` file.** It is already included in `.gitignore`.
-
----
-
-## 📡 API Reference
-
-Base URL (development – `npm run start:dev`): `http://localhost:8080`
-
-For production or when running `npm start`, the base URL is `http://localhost:5200` (or `http://localhost:${PORT}` if you change the `PORT` value).
-### Authentication
-
-| Method | Endpoint | Auth | Body | Description |
-|---|---|---|---|---|
-| `POST` | `/auth/register` | None | `{ username, password }` | Create a new account |
-| `POST` | `/auth/login` | None | `{ username, password }` | Authenticate and receive tokens |
-| `PATCH` | `/auth/refresh` | Bearer (access) | `{ refreshToken }` | Rotate access + refresh tokens |
-| `GET` | `/auth/me` | Bearer (access) | — | Check if the current token is valid |
-
-### Users
-
-| Method | Endpoint | Auth | Roles | Description |
-|---|---|---|---|---|
-| `GET` | `/users` | Bearer | `admin` | List all users |
-| `GET` | `/users/me` | Bearer | Any | Get current user's details |
-| `PATCH` | `/users/:uuid` | Bearer | Any* | Update user by UUID |
-| `DELETE` | `/users/:uuid` | Bearer | `admin` | Delete user by UUID |
-| `PATCH` | `/users/password` | Bearer | Any | Change your own password. Body: `{ currentPassword, password }` |
-| `PATCH` | `/users/password/:uuid` | Bearer | `admin` | Reset another user's password. Body: `{ password }` |
-
-> A malformed `:uuid` returns 400 before reaching the database.
-
-> *Users can only update their own profile; admins can update any profile.
-
-### Health
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/` | None | Returns server status and DB connectivity |
-
-**Health response example:**
-
-```json
-{
-  "status": "ok",
-  "database": {
-    "status": "connected",
-    "latencyMs": 12
-  },
-  "backend": {
-    "uptimeSeconds": 12345,
-    "version": "1.0.0",
-    "mode": "production"
-  },
-  "timestamp": "2025-01-01T12:00:00.000Z"
-}
-```
-
----
-
-### Request / Response Examples
-
-<details>
-<summary><strong>POST /auth/login</strong></summary>
-
-**Request:**
-```json
-{
-  "username": "myuser",
-  "password": "MyStr0ng!Password"
-}
-```
-
-**Success (200):**
-```json
-{
-  "message": "User logged in successfully",
-  "userID": "550e8400-e29b-41d4-a716-446655440000",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-**Failure (401):**
-```json
-{
-  "statusCode": 401,
-  "message": "Invalid Username or Password"
-}
-```
-
-</details>
-
-<details>
-<summary><strong>PATCH /auth/refresh</strong></summary>
-
-**Request** (with `Authorization: Bearer <accessToken>` header):
-```json
-{
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-**Success (200):**
-```json
-{
-  "message": "Token refreshed successfully",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-</details>
-
----
-
-## 🔑 Authentication Flow
-
-This template uses a **dual-token** authentication strategy:
-
-```
-┌──────────┐         ┌──────────────┐         ┌────────────────┐
-│  Client  │         │   NestJS API │         │    Database    │
-└──────────┘         └──────────────┘         └────────────────┘
-     │                      │                          │
-     │   POST /auth/login    │                          │
-     │──────────────────────▶│                          │
-     │                      │   findOne(username)       │
-     │                      │─────────────────────────▶│
-     │                      │◀─────────────────────────│
-     │                      │   bcrypt.compare()        │
-     │                      │   rotateTokens()          │
-     │                      │   saveRefreshToken(hash)  │
-     │                      │─────────────────────────▶│
-     │ { accessToken,        │                          │
-     │   refreshToken }      │                          │
-     │◀──────────────────────│                          │
-     │                      │                          │
-     │  (use accessToken     │                          │
-     │   for API calls)      │                          │
-     │                      │                          │
-     │  PATCH /auth/refresh  │                          │
-     │  Bearer: accessToken  │                          │
-     │  body: refreshToken   │                          │
-     │──────────────────────▶│                          │
-     │                      │  compare(token, hash)    │
-     │                      │─────────────────────────▶│
-     │                      │   rotateTokens()          │
-     │                      │   saveNewHash()           │
-     │                      │─────────────────────────▶│
-     │ { new accessToken,    │                          │
-     │   new refreshToken }  │                          │
-     │◀──────────────────────│                          │
-```
-
-**Token Details:**
-
-| Token | Algorithm | Default Expiry | Storage |
-|---|---|---|---|
-| Access Token | HS256 | 15 minutes | Client memory / header |
-| Refresh Token | HS256 | 7 days | Client (secure cookie / local) |
-| Refresh Token Hash | bcrypt (cost 10) | — | Database (`refreshTokenHash` column) |
-
----
-
-## 🛡️ Role-Based Access Control
-
-The template ships with two roles defined in `userRole.enum.ts`:
-
-```typescript
-enum UserRole {
-  ADMIN = 'admin',
-  USER  = 'user',
-}
-```
-
-Roles are enforced using a custom decorator + guard combination:
-
-```typescript
-// Apply to any controller or route handler
-@Roles('admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Get()
-findAll() { ... }
-```
-
-**How it works:**
-
-1. `JwtAuthGuard` validates the Bearer token and attaches `req.user` (with `id` and `role`).
-2. `RolesGuard` reads the `@Roles()` metadata and compares it against `req.user.role`.
-3. If the role does not match, a `403 Forbidden` response is returned.
-
-**Default Role Assignment:**
-
-All newly registered users are assigned the `user` role. Admin accounts must be promoted manually (via direct DB update or a dedicated admin endpoint that you add to your project).
-
----
-
-## 📝 Logging
-
-The template includes a zero-dependency, file-based logging system.
-
-### Log Files
-
-All files are written to the `logs/` directory (auto-created, excluded from git):
-
-| File | Contents |
-|---|---|
-| `logs/combined.log` | All log levels |
-| `logs/error.log` | Errors and warnings only |
-| `logs/stats.log` | User activity events (login, registration, etc.) |
-
-### Log Format
-
-```
-2026-02-11T17:50:00.123Z [INFO][Bootstrap] Server running on http://0.0.0.0:5200
-2026-02-11T17:50:01.456Z [INFO][HTTP] GET /users 200 {"duration":"12ms","userId":"abc-123"}
-2026-02-11T17:50:02.789Z [ERROR][AuthService] Invalid credentials {"trace":"Error: ..."}
-2026-02-11T17:50:03.012Z [INFO][UserStats] User abc-123 - login {"ip":"127.0.0.1"}
-```
-
-### HTTP Request Logging
-
-All incoming requests are automatically logged by `LoggingInterceptor` (applied globally). No manual configuration is needed. Each log entry includes:
-
-- HTTP method and URL
-- Response status code
-- Response time (ms)
-- User ID (if authenticated)
-
-### Using the Logger in Your Code
-
-```typescript
-// Adjust the import path based on your file's location or configured path aliases
-import { LoggerService } from 'src/modules/common/logging/services/logger.service';
-
-@Injectable()
-export class MyService {
-  constructor(private readonly logger: LoggerService) {}
-
-  doSomething() {
-    this.logger.log('Info message', 'MyService');
-    this.logger.warn('Warning message', 'MyService');
-    this.logger.error('Error message', error.stack, 'MyService');
-
-    // Log user actions to stats.log
-    this.logger.logUserStats('purchase', userId, { amount: 9.99 });
-  }
-}
-```
-
-> See [`LOGGING.md`](./LOGGING.md) for the full logging documentation.
-
----
-
-## 🧪 Testing
-
-```bash
-# Run all unit tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage report
-npm run test:cov
-
-# Run end-to-end tests
-npm run test:e2e
-```
-
-### Test Structure
-
-Tests live alongside the source files (`*.spec.ts`):
-
-```
-src/modules/db/db.service.spec.ts              # DbService unit tests
-src/modules/common/health/controller/
-    health.controller.spec.ts                  # HealthController unit tests
-```
-
-Tests use Jest with `@nestjs/testing` and mocked TypeORM repositories — no real database is required to run the test suite.
-
-**Example test approach:**
-
-```typescript
-// Repositories are mocked with jest.fn() factories
-const mockRepository = {
-  findOne: jest.fn(),
-  save: jest.fn(),
-  delete: jest.fn(),
-};
-
-const module = await Test.createTestingModule({
-  providers: [
-    DbService,
-    { provide: getRepositoryToken(User), useValue: mockRepository },
-  ],
-}).compile();
-```
-
----
-
-## 🔄 Replacing SQLite with PostgreSQL
-
-SQLite is used for quick local setup. To swap to PostgreSQL:
-
-1. Install the driver: `npm install pg`
-2. Update the TypeORM config in `app.module.ts`:
-
-```typescript
-TypeOrmModule.forRoot({
-  type: 'postgres',
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT ?? '5432'),
-  username: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  autoLoadEntities: true,
-  synchronize: process.env.NODE_ENV !== 'production', // use migrations in prod
-})
-```
-
----
-
-## 🔌 WebSocket Support
-
-Socket.io and `@nestjs/websockets` are pre-installed. To add a WebSocket gateway:
-
-```bash
-nest generate gateway events
-```
-
-This will scaffold a gateway class in `src/events/` that you can extend with your real-time logic.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes and add tests where appropriate
-4. Ensure all tests pass: `npm test`
-5. Lint your code: `npm run lint`
-6. Open a Pull Request describing your changes
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-
-Made with ❤️ by [Cameron Ginther](https://github.com/DiamondJdev), Chloe Hunter, and Brett Berry
-
-</div>
+MIT, as declared in [package.json](package.json).
